@@ -1,12 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react';
 import { Link } from "react-router-dom";
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import JobModal from './JobModal';
 
-// --------------------------------------------------------
-// TU URL (Asegúrate de que sea la misma que ya te funcionaba)
+// ⚠️ TU URL AQUÍ
 const API_URL = "https://script.google.com/macros/s/AKfycbwAbjv_WQZI3rTdaBho5BI1yYYhRxnfXzX_NC-NRXDCEA1BLc7cB0FBdkhDEukJzuFMfA/exec"; 
-// --------------------------------------------------------
 
-// Definimos las etapas de tu embudo de ventas personal
 const PIPELINE_STAGES = [
   { name: 'Prospecto', color: 'bg-gray-100 border-gray-300' },
   { name: 'Aplicado', color: 'bg-blue-50 border-blue-200' },
@@ -18,149 +17,192 @@ const PIPELINE_STAGES = [
 function App() {
   const [prospects, setProspects] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState(null); // Para mostrar spinner al guardar
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [currentJob, setCurrentJob] = useState(null);
 
-  // Cargar datos
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const fetchData = () => {
-    fetch(API_URL)
-      .then(res => res.json())
-      .then(data => {
-        setProspects(Array.isArray(data) ? data : []);
-        setLoading(false);
-      })
-      .catch(e => console.error(e));
-  };
-
-  // Función para mover de etapa (Enviar cambio a Google Sheets)
-  const handleStatusChange = (job, newStatus) => {
-    setUpdating(job.id); // Activar estado de carga en esa tarjeta
-    
-    // Optimismo UI: Actualizamos localmente primero para que se sienta rápido
-    const originalProspects = [...prospects];
-    const updatedProspects = prospects.map(p => 
-      p.id === job.id ? { ...p, status: newStatus } : p
-    );
-    setProspects(updatedProspects);
-
-    // Preparamos los datos para enviar
-    // NOTA: Enviamos todo el objeto actualizado
-    const payload = {
-      action: 'update',
-      ...job,
-      status: newStatus
-    };
-
-    // Enviamos a Google Sheets (usando un truco para evitar CORS en POST simple)
-    fetch(API_URL, {
-      method: "POST",
-      body: JSON.stringify(payload)
-    })
-    .then(() => {
-      setUpdating(null);
-      console.log("Actualizado en Google Sheets");
-    })
-    .catch(err => {
-      console.error("Error guardando:", err);
-      setProspects(originalProspects); // Revertimos si falla
-      setUpdating(null);
-      alert("Hubo un error al guardar los cambios.");
+    fetch(API_URL).then(res => res.json()).then(data => {
+      // Nos aseguramos de ordenar los datos para que no "bailen" al renderizar
+      const sortedData = Array.isArray(data) ? data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) : [];
+      setProspects(sortedData);
+      setLoading(false);
     });
   };
 
+  const handleOpenCreate = () => { setCurrentJob(null); setIsModalOpen(true); };
+  const handleOpenEdit = (job) => { setCurrentJob(job); setIsModalOpen(true); };
+
+  const handleSaveJob = (jobData) => {
+    setLoading(true);
+    const action = currentJob ? 'update' : 'create';
+    const payload = { action, ...jobData, id: currentJob?.id, last_updated: new Date() }; 
+
+    // Optimismo UI: Actualizamos localmente antes de esperar al servidor
+    if (action === 'create') {
+        // Inventamos un ID temporal para que se vea ya
+        setProspects(prev => [...prev, { ...jobData, id: `temp-${Date.now()}`, created_at: new Date() }]);
+    } else {
+        setProspects(prev => prev.map(p => p.id === currentJob.id ? { ...p, ...jobData } : p));
+    }
+    
+    // Enviamos a Google Sheets
+    fetch(API_URL, { method: "POST", body: JSON.stringify(payload) })
+    .then(res => res.json())
+    .then(() => {
+      fetchData(); // Sincronizamos ID real y datos finales
+      setIsModalOpen(false);
+    })
+    .catch(err => {
+      console.error(err);
+      alert("Error al guardar");
+      setLoading(false);
+    });
+  };
+
+  // Calcular días desde la última actualización
+  const getDaysInactive = (dateString) => {
+    if (!dateString) return 0;
+    const lastDate = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now - lastDate);
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+  };
+
+  // --- LÓGICA DE DRAG & DROP ---
+  const onDragEnd = (result) => {
+    const { source, destination, draggableId } = result;
+
+    // 1. Si se soltó fuera del tablero o en el mismo sitio, no hacemos nada
+    if (!destination) return;
+    if (source.droppableId === destination.droppableId && source.index === destination.index) return;
+
+    // 2. Buscamos el trabajo que se movió
+    const movedJob = prospects.find(p => p.id.toString() === draggableId);
+    if (!movedJob) return;
+
+    // 3. ACTUALIZACIÓN OPTIMISTA (Feedback instantáneo)
+    // Creamos una copia del array cambiando solo el estado de esa tarjeta
+    const newStatus = destination.droppableId;
+    
+    const updatedProspects = prospects.map(p => 
+      p.id.toString() === draggableId ? { ...p, status: newStatus } : p
+    );
+    setProspects(updatedProspects);
+
+    // 4. Enviar cambio a la API (Google Sheets) en segundo plano
+    const payload = {
+        action: 'update',
+        ...movedJob,
+        status: newStatus, 
+        last_updated: new Date()
+    };
+
+    fetch(API_URL, { method: "POST", body: JSON.stringify(payload) })
+      .catch(err => {
+          console.error("Error moviendo tarjeta", err);
+          alert("Hubo un error al mover la tarjeta. Recarga la página.");
+          fetchData(); // Revertimos si falla
+      });
+  };
+
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-100 flex flex-col font-sans h-screen overflow-hidden">
+      
       {/* HEADER */}
-      <header className="bg-white shadow-sm border-b px-6 py-4 flex justify-between items-center sticky top-0 z-10">
+      <header className="bg-white shadow-sm border-b px-4 py-3 flex justify-between items-center shrink-0 z-10 relative">
         <div className="flex items-center gap-2">
           <span className="text-2xl">🚀</span>
-          <h1 className="text-xl font-bold text-gray-800">JobHunter CRM</h1>
+          <h1 className="text-lg md:text-xl font-bold text-gray-800 hidden md:block">JobHunter CRM</h1>
         </div>
-        <button 
-          onClick={fetchData} 
-          className="text-sm text-blue-600 hover:underline cursor-pointer"
-        >
-          Actualizar Tablero ⟳
-        </button> <Link to="/cv" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-bold ml-4">
-  Crear CV Nuevo
-</Link>
+        <div className="flex gap-2">
+          <button onClick={handleOpenCreate} className="bg-slate-900 hover:bg-slate-800 text-white px-3 py-2 rounded text-sm font-bold flex items-center gap-2">
+            <span>+</span> <span className="hidden md:inline">Nueva Oportunidad</span>
+          </button>
+          <Link to="/cv" className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-bold">CV Studio</Link>
+        </div>
       </header>
 
-      {/* MAIN BOARD (Horizontal Scroll) */}
-      <main className="flex-1 overflow-x-auto overflow-y-hidden">
-        <div className="h-full flex p-6 gap-6 min-w-max">
-          
-          {loading ? (
-            <div className="text-center w-full mt-20 text-gray-500">Cargando tu imperio...</div>
-          ) : (
-            PIPELINE_STAGES.map((stage) => (
-              <div key={stage.name} className="w-80 flex flex-col h-full">
-                {/* Cabecera de Columna */}
-                <div className={`flex justify-between items-center px-4 py-3 rounded-t-lg border-b-2 font-semibold text-gray-700 ${stage.color}`}>
-                  <span>{stage.name}</span>
-                  <span className="bg-white/50 px-2 py-0.5 rounded text-xs text-gray-600">
-                    {prospects.filter(p => p.status === stage.name).length}
-                  </span>
-                </div>
+      {/* CONTEXTO DE ARRASTRE */}
+      <DragDropContext onDragEnd={onDragEnd}>
+        <main className="flex-1 overflow-x-auto overflow-y-hidden bg-slate-200/50">
+          <div className="h-full flex flex-col md:flex-row p-4 gap-4 md:min-w-max overflow-y-auto md:overflow-y-hidden">
+            
+            {loading && <div className="text-center w-full mt-10">Cargando...</div>}
 
-                {/* Área de Tarjetas */}
-                <div className="bg-gray-100/50 flex-1 p-2 rounded-b-lg border border-gray-200 overflow-y-auto min-h-[500px]">
+            {!loading && PIPELINE_STAGES.map((stage) => {
+              // Filtramos las tarjetas de esta columna
+              const columnProspects = prospects.filter(p => p.status === stage.name);
+
+              return (
+                <div key={stage.name} className="w-full md:w-80 flex flex-col h-fit md:h-full shrink-0">
                   
-                  {prospects.filter(p => p.status === stage.name).map((job) => (
-                    <div key={job.id} className="bg-white p-4 rounded-lg shadow-sm mb-3 border border-gray-200 hover:shadow-md transition-all group">
-                      
-                      {/* Empresa y Rol */}
-                      <div className="mb-2">
-                        <h3 className="font-bold text-gray-800 leading-tight">{job.role}</h3>
-                        <p className="text-blue-600 text-sm font-medium">{job.company}</p>
+                  {/* CABECERA */}
+                  <div className={`flex justify-between items-center px-4 py-3 rounded-t-lg border-b-2 font-bold text-gray-700 ${stage.color}`}>
+                    <span>{stage.name}</span>
+                    <span className="bg-white/60 px-2 rounded text-xs">{columnProspects.length}</span>
+                  </div>
+
+                  {/* ZONA DROPPABLE (Donde soltamos) */}
+                  <Droppable droppableId={stage.name}>
+                    {(provided, snapshot) => (
+                      <div 
+                        {...provided.droppableProps}
+                        ref={provided.innerRef}
+                        className={`flex-1 p-2 rounded-b-lg border border-gray-200 overflow-y-auto min-h-[100px] md:min-h-0 transition-colors
+                          ${snapshot.isDraggingOver ? 'bg-blue-50/80' : 'bg-gray-100/50'}`}
+                      >
+                        {columnProspects.map((job, index) => (
+                          
+                          /* TARJETA DRAGGABLE (Lo que arrastramos) */
+                          <Draggable key={job.id} draggableId={job.id.toString()} index={index}>
+                            {(provided, snapshot) => (
+                              <div
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                {...provided.dragHandleProps}
+                                onClick={() => handleOpenEdit(job)}
+                                style={{ ...provided.draggableProps.style }} // Estilo necesario para que funcione el arrastre
+                                className={`bg-white p-3 rounded-lg shadow-sm mb-3 border border-gray-200 hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing group relative
+                                  ${snapshot.isDragging ? 'shadow-2xl rotate-2 ring-2 ring-blue-400 z-50' : ''}`}
+                              >
+                                <div className="flex justify-between items-start">
+                                  <h3 className="font-bold text-gray-800 leading-tight">{job.role}</h3>
+                                  {job.location_type === 'Remoto' && <span className="text-[10px] bg-purple-100 text-purple-700 px-1 rounded">🏠</span>}
+                                </div>
+                                <p className="text-blue-600 text-sm font-medium mb-2">{job.company}</p>
+                                <div className="text-xs text-gray-500 space-y-1">
+                                  {job.salary && <p>💰 {job.salary}</p>}
+                                  {job.interview_date && (
+                                    <p className="text-orange-600 font-semibold">📅 {new Date(job.interview_date).toLocaleDateString()}</p>
+                                  )}
+                                  <p className="text-blue-600 text-sm font-medium mb-2">{job.company}</p>
+
+{/* ALERTA DE INACTIVIDAD (NUEVO) */}
+{getDaysInactive(job.last_updated) > 7 && (
+   <div className="bg-red-50 text-red-600 text-[10px] px-2 py-1 rounded mb-2 flex items-center gap-1 border border-red-100">
+      ⚠️ {getDaysInactive(job.last_updated)} días sin actividad
+   </div>
+)}
+                                </div>
+                              </div>
+                            )}
+                          </Draggable>
+
+                        ))}
+                        {provided.placeholder} {/* Hueco necesario para que no colapse */}
                       </div>
-
-                      {/* Info extra */}
-                      <div className="text-xs text-gray-500 space-y-1 mb-3">
-                        {job.contact_name && <p>👤 {job.contact_name}</p>}
-                        {job.tech_stack && <p>💻 {job.tech_stack}</p>}
-                      </div>
-
-                      {/* Controles */}
-                      <div className="flex justify-between items-center pt-3 border-t border-gray-50 mt-2">
-                         <a href={job.link} target="_blank" className="text-xs font-bold text-gray-400 hover:text-blue-600 uppercase">
-                           Ver Oferta
-                         </a>
-                         
-                         {/* Selector de Estado */}
-                         <div className="relative">
-                            {updating === job.id && <span className="absolute -top-6 right-0 text-xs text-blue-500">Guardando...</span>}
-                            <select 
-                              value={job.status} 
-                              onChange={(e) => handleStatusChange(job, e.target.value)}
-                              className="text-xs border rounded px-1 py-1 bg-gray-50 text-gray-600 focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                            >
-                              {PIPELINE_STAGES.map(s => (
-                                <option key={s.name} value={s.name}>{s.name}</option>
-                              ))}
-                            </select>
-                         </div>
-                      </div>
-
-                    </div>
-                  ))}
-
-                  {/* Placeholder si está vacío */}
-                  {prospects.filter(p => p.status === stage.name).length === 0 && (
-                    <div className="text-center py-10 text-gray-300 text-sm italic border-2 border-dashed border-gray-200 rounded">
-                      Vacío
-                    </div>
-                  )}
+                    )}
+                  </Droppable>
                 </div>
-              </div>
-            ))
-          )}
+              );
+            })}
+          </div>
+        </main>
+      </DragDropContext>
 
-        </div>
-      </main>
+      <JobModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveJob} jobToEdit={currentJob} />
     </div>
   )
 }
