@@ -86,7 +86,6 @@ export default function CVBuilder() {
       
       {/* ================= EDITOR (IZQUIERDA) ================= */}
       <aside className="w-full md:w-[450px] bg-white h-screen overflow-y-auto border-r border-gray-200 shadow-xl z-10 print:hidden flex flex-col">
-        {/* ... (Esta parte del editor NO cambia porque no se imprime) ... */}
         <div className="p-4 bg-slate-900 text-white flex justify-between items-center sticky top-0 z-20">
           <div className="flex items-center gap-2">
             <Link to="/" className="hover:bg-slate-700 p-2 rounded"><ArrowLeft size={20}/></Link>
@@ -191,20 +190,24 @@ export default function CVBuilder() {
       {/* ================= PREVIEW (DERECHA) ================= */}
       <main className="flex-1 bg-gray-500 overflow-y-auto p-4 md:p-8 flex justify-center">
         
-        {/* HOJA DE CV BLINDADA CONTRA OKLAB
-            Usamos 'style' en línea para todo lo que tenga color. 
-            Tailwind no puede tocar esto.
-        */}
+        {/* HOJA DE CV BLINDADA */}
         <div 
           ref={componentRef}
           className="shadow-2xl w-[210mm] flex items-stretch min-h-[297mm]"
-          style={{ height: 'fit-content', backgroundColor: '#ffffff', color: '#000000' }} 
+          style={{ 
+            height: 'fit-content', 
+            // EL TRUCO DEL FONDO INFINITO: 
+            // Creamos un degradado que simula las dos columnas.
+            // 0% a 32% es Color Tema (Izquierda). 32% a 100% es Blanco (Derecha).
+            background: `linear-gradient(90deg, ${cv.themeColor} 0%, ${cv.themeColor} 32%, #ffffff 32%, #ffffff 100%)`,
+            color: '#000000' 
+          }} 
         >
           
-          {/* COLUMNA IZQUIERDA */}
+          {/* COLUMNA IZQUIERDA (Sin background color propio para que se vea el gradiente del padre) */}
           <div 
             className="w-[32%] p-6 pt-10 flex flex-col shrink-0"
-            style={{ backgroundColor: cv.themeColor, color: '#ffffff' }}
+            style={{ color: '#ffffff' }}
           >
             <div className="w-28 h-28 rounded-full mx-auto mb-6 overflow-hidden flex items-center justify-center shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.2)', border: '4px solid rgba(255,255,255,0.3)' }}>
                {cv.personal.photoUrl ? (
@@ -262,7 +265,7 @@ export default function CVBuilder() {
           </div>
 
           {/* COLUMNA DERECHA */}
-          <div className="w-[68%] p-8 pt-10 flex flex-col" style={{ backgroundColor: '#ffffff', color: '#1e293b' }}>
+          <div className="w-[68%] p-8 pt-10 flex flex-col" style={{ backgroundColor: 'transparent', color: '#1e293b' }}>
             <header className="mb-6 pb-4 shrink-0" style={{ borderBottom: `2px solid ${cv.themeColor}` }}>
               <h1 className="text-3xl font-extrabold uppercase tracking-tight leading-none mb-1" style={{ color: '#1e293b' }}>{cv.personal.name}</h1>
               <h2 className="text-lg font-medium" style={{ color: cv.themeColor }}>{cv.personal.title}</h2>
