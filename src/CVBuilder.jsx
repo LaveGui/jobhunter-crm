@@ -46,33 +46,27 @@ export default function CVBuilder() {
     setCv({ ...cv, [section]: updated });
   };
 
-  // --- IMPRESIÓN ---
+// --- IMPRESIÓN (CORREGIDA) ---
   const componentRef = useRef();
   
   const handlePrint = useReactToPrint({
-    contentRef: componentRef,
+    contentRef: componentRef, // Referencia al contenido a imprimir
     documentTitle: `CV_${cv.personal.name}`,
-    // Esto asegura que se impriman los colores de fondo
-    print: async (printIframe) => {
-        const document = printIframe.contentDocument;
-        if (document) {
-          const style = document.createElement('style');
-          // TRUCO CSS: Forzar tamaño dinámico y márgenes cero
-          style.textContent = `
-            @page { size: auto; margin: 0mm; } 
-            @media print { 
-              body { -webkit-print-color-adjust: exact; }
-              html, body { height: auto; }
-            }
-          `;
-          document.head.appendChild(style);
-        }
-    }
+    // Eliminamos la función 'print' personalizada que causaba el error
   });
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row font-sans">
       
+      {/* --- ESTILOS DE IMPRESIÓN (Inyectados aquí para seguridad) --- */}
+      <style>{`
+        @media print {
+          @page { size: auto; margin: 0mm; }
+          body { -webkit-print-color-adjust: exact; }
+          html, body { height: auto; }
+        }
+      `}</style>
+
       {/* ================= EDITOR (IZQUIERDA) ================= */}
       <aside className="w-full md:w-[450px] bg-white h-screen overflow-y-auto border-r border-gray-200 shadow-xl z-10 print:hidden flex flex-col">
         <div className="p-4 bg-slate-900 text-white flex justify-between items-center sticky top-0 z-20">
@@ -80,7 +74,8 @@ export default function CVBuilder() {
             <Link to="/" className="hover:bg-slate-700 p-2 rounded"><ArrowLeft size={20}/></Link>
             <h2 className="font-bold">CV Studio</h2>
           </div>
-          <button onClick={handlePrint} className="bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded text-sm font-bold flex gap-2 shadow-lg hover:shadow-blue-500/50 transition-all">
+          {/* El botón ahora llama a la función corregida */}
+          <button onClick={handlePrint} className="bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded text-sm font-bold flex gap-2 shadow-lg hover:shadow-blue-500/50 transition-all cursor-pointer">
             <Printer size={16}/> Descargar PDF
           </button>
         </div>
