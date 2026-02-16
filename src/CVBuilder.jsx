@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { Link } from "react-router-dom";
+import html2pdf from 'html2pdf.js'; // <--- IMPORTANTE: La librería que reinstalamos
 import { Mail, Phone, MapPin, Linkedin, Trash2, PlusCircle, Printer, ArrowLeft, LayoutTemplate, Globe } from 'lucide-react';
 
 export default function CVBuilder() {
@@ -30,8 +31,8 @@ export default function CVBuilder() {
     ],
     skills: ["HubSpot", "Braze", "Salesforce", "Zapier"]
   });
-
-  const [isDownloading, setIsDownloading] = useState(false);
+const [isDownloading, setIsDownloading] = useState(false);
+  const componentRef = useRef(); // Referencia al documento CV
 
   // --- CONTROLADORES ---
   const handlePersonalChange = (e) => setCv({ ...cv, personal: { ...cv.personal, [e.target.name]: e.target.value } });
@@ -43,43 +44,51 @@ export default function CVBuilder() {
     setCv({ ...cv, [section]: updated });
   };
 
-// --- IMPRESIÓN NATIVA (SIN LIBRERIAS EXTERNAS) ---
-  const handlePrint = () => {
-    window.print();
+  // --- LÓGICA "PDF INFINITO" (Basada en tu investigación) ---
+  const handleDownloadPDF = () => {
+    setIsDownloading(true);
+    const element = componentRef.current;
+
+    // 1. Calcular la altura real del contenido HTML
+    // (scrollHeight te da la altura total en píxeles)
+    const elementHeightPx = element.scrollHeight;
+    
+    // 2. Convertir píxeles a milímetros (1px ≈ 0.264583 mm)
+    // Añadimos un pequeño margen de seguridad (+2mm)
+    const pdfHeightMm = (elementHeightPx * 0.264583) + 2;
+
+    const opt = {
+      margin: 0,
+      filename: `CV_${cv.personal.name.replace(/\s+/g, '_')}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { 
+        scale: 2, // Mejor calidad (x2)
+        useCORS: true, // Intentar cargar imágenes externas
+        logging: true,
+        scrollY: 0
+      },
+      jsPDF: { 
+        unit: 'mm', 
+        format: [210, pdfHeightMm], // <--- AQUÍ ESTÁ EL TRUCO: Ancho fijo (A4), Alto dinámico
+        orientation: 'portrait' 
+      }
+    };
+
+    html2pdf()
+      .set(opt)
+      .from(element)
+      .save()
+      .then(() => setIsDownloading(false))
+      .catch((err) => {
+        console.error(err);
+        setIsDownloading(false);
+        alert("Error al generar PDF. Si tienes una foto externa, prueba a quitarla.");
+      });
   };
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row font-sans">
       
-      {/* ESTILOS DE IMPRESIÓN: EL TRUCO PARA EL PDF INFINITO */}
-      <style>{`
-        @media print {
-          @page {
-            size: auto;   /* Clave: Tamaño automático */
-            margin: 0mm;
-          }
-          body {
-            background-color: white;
-            -webkit-print-color-adjust: exact;
-          }
-          /* Ocultamos la barra lateral y cabecera al imprimir */
-          aside, header, .no-print { display: none !important; }
-          
-          /* Forzamos al CV a ocupar todo el ancho */
-          main { 
-            width: 100% !important; 
-            margin: 0 !important; 
-            padding: 0 !important;
-            overflow: visible !important;
-          }
-          #cv-document {
-            width: 100% !important;
-            min-height: 100vh !important;
-            box-shadow: none !important;
-          }
-        }
-      `}</style>
-
       {/* ================= EDITOR (IZQUIERDA) ================= */}
       <aside className="w-full md:w-[450px] bg-white h-screen overflow-y-auto border-r border-gray-200 shadow-xl z-10 print:hidden flex flex-col">
         <div className="p-4 bg-slate-900 text-white flex justify-between items-center sticky top-0 z-20">
@@ -88,10 +97,12 @@ export default function CVBuilder() {
             <h2 className="font-bold">CV Studio</h2>
           </div>
           <button 
-            onClick={handlePrint} 
-            className="bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded text-sm font-bold flex gap-2 shadow-lg transition-all cursor-pointer"
+            onClick={handleDownloadPDF} 
+            disabled={isDownloading}
+            className={`px-3 py-1.5 rounded text-sm font-bold flex gap-2 shadow-lg transition-all 
+              ${isDownloading ? 'bg-gray-500 cursor-wait' : 'bg-blue-600 hover:bg-blue-700 cursor-pointer'}`}
           >
-            <Printer size={16}/> Guardar PDF
+            {isDownloading ? 'Generando...' : <><Download size={16}/> Descargar PDF</>}
           </button>
         </div>
 
@@ -182,26 +193,27 @@ export default function CVBuilder() {
       </aside>
 
       {/* ================= PREVIEW (DERECHA) ================= */}
-      <main className="flex-1 bg-gray-500 overflow-y-auto p-4 md:p-8 flex justify-center print:p-0 print:bg-white print:m-0">
+      <main className="flex-1 bg-gray-500 overflow-y-auto p-4 md:p-8 flex justify-center">
         
-        {/* HOJA DE CV */}
+        {/* HOJA DE CV - Usamos ref={componentRef} para que html2pdf sepa qué imprimir */}
         <div 
-          id="cv-document"
-          className="bg-white shadow-2xl w-[210mm] flex items-stretch min-h-[297mm] print:w-full print:shadow-none"
+          ref={componentRef}
+          className="bg-white shadow-2xl w-[210mm] flex items-stretch min-h-[297mm]"
+          style={{ height: 'fit-content' }} // Importante para que lea la altura real
         >
           
           {/* COLUMNA IZQUIERDA */}
-          <div style={{ backgroundColor: cv.themeColor }} className="w-[32%] text-white p-6 pt-10 flex flex-col shrink-0 print:h-auto">
+          <div style={{ backgroundColor: cv.themeColor }} className="w-[32%] text-white p-6 pt-10 flex flex-col shrink-0">
             <div className="w-28 h-28 bg-white/20 rounded-full mx-auto mb-6 overflow-hidden border-4 border-white/30 flex items-center justify-center shrink-0">
                {cv.personal.photoUrl ? (
-                 <img src={cv.personal.photoUrl} alt="Profile" className="w-full h-full object-cover" />
+                 <img src={cv.personal.photoUrl} alt="Profile" className="w-full h-full object-cover" crossOrigin="anonymous" />
                ) : (
                  <span className="text-4xl font-bold">{cv.personal.name.charAt(0)}</span>
                )}
             </div>
 
             <div className="space-y-6 text-sm flex-1">
-              {/* Contacto */}
+              {/* CONTACTO */}
               <div>
                 <h3 className="font-bold uppercase tracking-wider mb-2 border-b border-white/30 pb-1 text-white/90 text-xs">Contacto</h3>
                 <ul className="space-y-2 text-white/80 text-xs">
@@ -212,7 +224,7 @@ export default function CVBuilder() {
                 </ul>
               </div>
               
-              {/* Skills */}
+              {/* SKILLS */}
               <div>
                 <h3 className="font-bold uppercase tracking-wider mb-2 border-b border-white/30 pb-1 text-white/90 text-xs">Skills</h3>
                 <div className="flex flex-wrap gap-1">
@@ -220,7 +232,7 @@ export default function CVBuilder() {
                 </div>
               </div>
 
-              {/* Educación */}
+              {/* EDUCACIÓN */}
               <div>
                 <h3 className="font-bold uppercase tracking-wider mb-2 border-b border-white/30 pb-1 text-white/90 text-xs">Educación</h3>
                 {cv.education.map((edu) => (
@@ -232,7 +244,7 @@ export default function CVBuilder() {
                 ))}
               </div>
 
-              {/* Idiomas */}
+              {/* IDIOMAS */}
               {cv.languages.length > 0 && (
                 <div>
                   <h3 className="font-bold uppercase tracking-wider mb-2 border-b border-white/30 pb-1 text-white/90 text-xs">Idiomas</h3>
@@ -248,7 +260,7 @@ export default function CVBuilder() {
           </div>
 
           {/* COLUMNA DERECHA */}
-          <div className="w-[68%] p-8 pt-10 text-slate-800 bg-white flex flex-col print:h-auto">
+          <div className="w-[68%] p-8 pt-10 text-slate-800 bg-white flex flex-col">
             <header className="mb-6 border-b-2 pb-4 shrink-0" style={{ borderColor: cv.themeColor }}>
               <h1 className="text-3xl font-extrabold uppercase tracking-tight leading-none mb-1">{cv.personal.name}</h1>
               <h2 className="text-lg font-medium" style={{ color: cv.themeColor }}>{cv.personal.title}</h2>
