@@ -57,12 +57,13 @@ export default function CVBuilder() {
         const opt = {
           margin: 0,
           filename: `CV_${cv.personal.name.replace(/\s+/g, '_')}.pdf`,
-          image: { type: 'jpeg', quality: 0.98 },
+          image: { type: 'jpeg', quality: 0.98 }, // Calidad máxima imagen
           html2canvas: { 
-            scale: 2, 
+            scale: 2, // Mantenemos escala x2 para nitidez
             useCORS: true, 
             scrollY: 0,
-            backgroundColor: '#ffffff'
+            backgroundColor: '#ffffff',
+            letterRendering: true // Ayuda con el espaciado de fuentes
           },
           jsPDF: { 
             unit: 'mm', 
@@ -86,6 +87,7 @@ export default function CVBuilder() {
       
       {/* ================= EDITOR (IZQUIERDA) ================= */}
       <aside className="w-full md:w-[450px] bg-white h-screen overflow-y-auto border-r border-gray-200 shadow-xl z-10 print:hidden flex flex-col">
+        {/* Header Editor */}
         <div className="p-4 bg-slate-900 text-white flex justify-between items-center sticky top-0 z-20">
           <div className="flex items-center gap-2">
             <Link to="/" className="hover:bg-slate-700 p-2 rounded"><ArrowLeft size={20}/></Link>
@@ -101,6 +103,7 @@ export default function CVBuilder() {
           </button>
         </div>
 
+        {/* Formulario */}
         <div className="p-6 space-y-8 pb-20">
           <section className="grid grid-cols-2 gap-4">
              <div>
@@ -196,19 +199,17 @@ export default function CVBuilder() {
           className="shadow-2xl w-[210mm] flex items-stretch min-h-[297mm]"
           style={{ 
             height: 'fit-content', 
-            // EL TRUCO DEL FONDO INFINITO: 
-            // Creamos un degradado que simula las dos columnas.
-            // 0% a 32% es Color Tema (Izquierda). 32% a 100% es Blanco (Derecha).
             background: `linear-gradient(90deg, ${cv.themeColor} 0%, ${cv.themeColor} 32%, #ffffff 32%, #ffffff 100%)`,
             color: '#000000' 
           }} 
         >
           
-          {/* COLUMNA IZQUIERDA (Sin background color propio para que se vea el gradiente del padre) */}
+          {/* COLUMNA IZQUIERDA */}
           <div 
             className="w-[32%] p-6 pt-10 flex flex-col shrink-0"
             style={{ color: '#ffffff' }}
           >
+            {/* Foto */}
             <div className="w-28 h-28 rounded-full mx-auto mb-6 overflow-hidden flex items-center justify-center shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.2)', border: '4px solid rgba(255,255,255,0.3)' }}>
                {cv.personal.photoUrl ? (
                  <img src={cv.personal.photoUrl} alt="Profile" className="w-full h-full object-cover" crossOrigin="anonymous" />
@@ -217,34 +218,51 @@ export default function CVBuilder() {
                )}
             </div>
 
-            <div className="space-y-6 text-sm flex-1">
-              {/* CONTACTO */}
+            <div className="space-y-8 text-sm flex-1">
+              
+              {/* CONTACTO - Alineación Fix: items-start y mt-[2px] para el icono */}
               <div>
-                <h3 className="font-bold uppercase tracking-wider mb-2 pb-1 text-xs" style={{ borderBottom: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.9)' }}>Contacto</h3>
-                <ul className="space-y-2 text-xs" style={{ color: 'rgba(255,255,255,0.8)' }}>
-                  <li className="flex items-center gap-2"><Phone size={12}/> {cv.personal.phone}</li>
-                  <li className="flex items-center gap-2"><Mail size={12}/> <span className="break-all">{cv.personal.email}</span></li>
-                  <li className="flex items-center gap-2"><MapPin size={12}/> {cv.personal.location}</li>
-                  <li className="flex items-center gap-2"><Linkedin size={12}/> <span className="truncate w-32">{cv.personal.linkedin}</span></li>
+                <h3 className="font-bold uppercase tracking-wider mb-3 pb-2 text-xs" style={{ borderBottom: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.9)' }}>Contacto</h3>
+                <ul className="space-y-3 text-xs" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                  <li className="flex items-start gap-3">
+                    <div className="mt-[2px]"><Phone size={14}/></div> 
+                    <span>{cv.personal.phone}</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <div className="mt-[2px]"><Mail size={14}/></div> 
+                    <span className="break-all">{cv.personal.email}</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <div className="mt-[2px]"><MapPin size={14}/></div> 
+                    <span>{cv.personal.location}</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <div className="mt-[2px]"><Linkedin size={14}/></div> 
+                    <span className="truncate w-32">{cv.personal.linkedin}</span>
+                  </li>
                 </ul>
               </div>
               
-              {/* SKILLS */}
+              {/* SKILLS - Fix: py-1 para que no se corte */}
               <div>
-                <h3 className="font-bold uppercase tracking-wider mb-2 pb-1 text-xs" style={{ borderBottom: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.9)' }}>Skills</h3>
-                <div className="flex flex-wrap gap-1">
-                  {cv.skills.map((s, i) => <span key={i} className="px-2 py-0.5 rounded text-[10px]" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}>{s}</span>)}
+                <h3 className="font-bold uppercase tracking-wider mb-3 pb-2 text-xs" style={{ borderBottom: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.9)' }}>Skills</h3>
+                <div className="flex flex-wrap gap-2">
+                  {cv.skills.map((s, i) => (
+                    <span key={i} className="px-2 py-1 rounded text-[10px] leading-none" style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}>
+                      {s}
+                    </span>
+                  ))}
                 </div>
               </div>
 
               {/* EDUCACIÓN */}
               <div>
-                <h3 className="font-bold uppercase tracking-wider mb-2 pb-1 text-xs" style={{ borderBottom: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.9)' }}>Educación</h3>
+                <h3 className="font-bold uppercase tracking-wider mb-3 pb-2 text-xs" style={{ borderBottom: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.9)' }}>Educación</h3>
                 {cv.education.map((edu) => (
-                   <div key={edu.id} className="mb-3" style={{ color: 'rgba(255,255,255,0.8)' }}>
-                     <p className="font-bold text-xs">{edu.degree}</p>
-                     <p className="text-[10px]" style={{ opacity: 0.7 }}>{edu.school}</p>
-                     <p className="text-[10px]" style={{ opacity: 0.7 }}>{edu.date}</p>
+                   <div key={edu.id} className="mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                     <p className="font-bold text-xs mb-0.5">{edu.degree}</p>
+                     <p className="text-[10px]" style={{ opacity: 0.8 }}>{edu.school}</p>
+                     <p className="text-[10px]" style={{ opacity: 0.8 }}>{edu.date}</p>
                    </div>
                 ))}
               </div>
@@ -252,11 +270,11 @@ export default function CVBuilder() {
               {/* IDIOMAS */}
               {cv.languages.length > 0 && (
                 <div>
-                  <h3 className="font-bold uppercase tracking-wider mb-2 pb-1 text-xs" style={{ borderBottom: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.9)' }}>Idiomas</h3>
+                  <h3 className="font-bold uppercase tracking-wider mb-3 pb-2 text-xs" style={{ borderBottom: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.9)' }}>Idiomas</h3>
                   {cv.languages.map((lang) => (
-                    <div key={lang.id} className="mb-2 flex justify-between items-baseline text-xs" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                    <div key={lang.id} className="mb-2 flex justify-between items-baseline text-xs" style={{ color: 'rgba(255,255,255,0.9)' }}>
                       <span className="font-semibold">{lang.language}</span>
-                      <span className="text-[10px]" style={{ opacity: 0.7 }}>{lang.level}</span>
+                      <span className="text-[10px]" style={{ opacity: 0.8 }}>{lang.level}</span>
                     </div>
                   ))}
                 </div>
@@ -266,31 +284,44 @@ export default function CVBuilder() {
 
           {/* COLUMNA DERECHA */}
           <div className="w-[68%] p-8 pt-10 flex flex-col" style={{ backgroundColor: 'transparent', color: '#1e293b' }}>
-            <header className="mb-6 pb-4 shrink-0" style={{ borderBottom: `2px solid ${cv.themeColor}` }}>
-              <h1 className="text-3xl font-extrabold uppercase tracking-tight leading-none mb-1" style={{ color: '#1e293b' }}>{cv.personal.name}</h1>
-              <h2 className="text-lg font-medium" style={{ color: cv.themeColor }}>{cv.personal.title}</h2>
+            {/* Header */}
+            <header className="mb-8 pb-4 shrink-0" style={{ borderBottom: `2px solid ${cv.themeColor}` }}>
+              <h1 className="text-4xl font-extrabold uppercase tracking-tight leading-none mb-2" style={{ color: '#1e293b' }}>{cv.personal.name}</h1>
+              <h2 className="text-lg font-bold tracking-wide" style={{ color: cv.themeColor }}>{cv.personal.title}</h2>
             </header>
 
-            <section className="mb-6 shrink-0">
-              <h3 className="text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-2" style={{ color: '#334155' }}>
-                <span className="p-1 rounded" style={{ backgroundColor: cv.themeColor, color: '#ffffff' }}><LayoutTemplate size={12}/></span> Perfil
+            {/* Perfil */}
+            <section className="mb-8 shrink-0">
+              <h3 className="text-xs font-bold uppercase tracking-wider mb-3 flex items-start gap-2" style={{ color: '#334155' }}>
+                <span className="p-1 rounded mt-[-2px]" style={{ backgroundColor: cv.themeColor, color: '#ffffff' }}><LayoutTemplate size={12}/></span> 
+                <span className="mt-[1px]">Perfil</span>
               </h3>
               <p className="text-xs leading-relaxed text-justify" style={{ color: '#475569' }}>{cv.personal.summary}</p>
             </section>
 
+            {/* Experiencia */}
             <section className="flex-1">
-              <h3 className="text-xs font-bold uppercase tracking-wider mb-4 flex items-center gap-2" style={{ color: '#334155' }}>
-                <span className="p-1 rounded" style={{ backgroundColor: cv.themeColor, color: '#ffffff' }}><LayoutTemplate size={12}/></span> Experiencia
+              <h3 className="text-xs font-bold uppercase tracking-wider mb-5 flex items-start gap-2" style={{ color: '#334155' }}>
+                <span className="p-1 rounded mt-[-2px]" style={{ backgroundColor: cv.themeColor, color: '#ffffff' }}><LayoutTemplate size={12}/></span> 
+                <span className="mt-[1px]">Experiencia</span>
               </h3>
-              <div className="space-y-5">
+              
+              <div className="space-y-6">
                 {cv.experience.map((exp) => (
-                  <div key={exp.id} className="relative pl-3" style={{ borderLeft: `2px solid ${cv.themeColor}40` }}>
-                    <div className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full" style={{ backgroundColor: cv.themeColor }}></div>
-                    <div className="flex justify-between items-baseline mb-0.5">
+                  <div key={exp.id} className="relative pl-4" style={{ borderLeft: `2px solid ${cv.themeColor}40` }}>
+                    
+                    {/* Punto del Timeline - Ajustado top-2 */}
+                    <div className="absolute -left-[5px] top-2 w-2 h-2 rounded-full" style={{ backgroundColor: cv.themeColor }}></div>
+                    
+                    <div className="flex justify-between items-start mb-1">
                       <h4 className="font-bold text-sm" style={{ color: '#1e293b' }}>{exp.role}</h4>
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: '#f3f4f6', color: '#64748b' }}>{exp.date}</span>
+                      {/* Fecha Badge - Fix Padding y Line-height */}
+                      <span className="text-[10px] font-bold px-2 py-1 rounded leading-none whitespace-nowrap" style={{ backgroundColor: '#f3f4f6', color: '#64748b' }}>
+                        {exp.date}
+                      </span>
                     </div>
-                    <p className="text-xs font-semibold mb-1" style={{ color: cv.themeColor }}>{exp.company}</p>
+                    
+                    <p className="text-xs font-bold mb-2" style={{ color: cv.themeColor }}>{exp.company}</p>
                     <p className="text-xs leading-relaxed whitespace-pre-line" style={{ color: '#475569' }}>{exp.description}</p>
                   </div>
                 ))}
