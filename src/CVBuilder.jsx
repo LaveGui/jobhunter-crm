@@ -44,42 +44,59 @@ const [isDownloading, setIsDownloading] = useState(false);
     setCv({ ...cv, [section]: updated });
   };
 
-// --- LÓGICA "PDF INFINITO" ---
-  const handleDownloadPDF = () => {
+// --- LÓGICA DEPURACIÓN PDF ---
+  const handleDownloadPDF = async () => {
     setIsDownloading(true);
     const element = componentRef.current;
 
-    // Calcular altura
-    const elementHeightPx = element.scrollHeight;
-    const pdfHeightMm = (elementHeightPx * 0.264583) + 2;
+    try {
+        // 1. Verificación básica
+        if (!element) throw new Error("No se encuentra el elemento del CV (Referencia null)");
+        
+        console.log("Iniciando generación de PDF...");
+        console.log("Elemento a imprimir:", element);
 
-    const opt = {
-      margin: 0,
-      filename: `CV_${cv.personal.name.replace(/\s+/g, '_')}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { 
-        scale: 2, 
-        useCORS: true, 
-        logging: true,
-        scrollY: 0
-      },
-      jsPDF: { 
-        unit: 'mm', 
-        format: [210, pdfHeightMm], 
-        orientation: 'portrait' 
-      }
-    };
+        // 2. Calcular altura
+        const elementHeightPx = element.scrollHeight;
+        const elementWidthPx = element.scrollWidth;
+        console.log(`Dimensiones detectadas: ${elementWidthPx} x ${elementHeightPx} px`);
 
-    html2pdf()
-      .set(opt)
-      .from(element)
-      .save()
-      .then(() => setIsDownloading(false))
-      .catch((err) => {
-        console.error(err);
+        if (elementHeightPx === 0) throw new Error("La altura del CV es 0. El elemento podría estar oculto.");
+
+        const pdfHeightMm = (elementHeightPx * 0.264583) + 2;
+        console.log(`Altura PDF calculada: ${pdfHeightMm} mm`);
+
+        // 3. Configuración Simplificada (Modo Seguro)
+        const opt = {
+          margin: 0,
+          filename: `CV_${cv.personal.name.replace(/\s+/g, '_')}.pdf`,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { 
+            scale: 2, 
+            useCORS: true, 
+            logging: true, // Esto mostrará el proceso interno en la consola
+            scrollY: 0,
+            windowWidth: element.scrollWidth // Ayuda a prevenir cortes horizontales
+          },
+          jsPDF: { 
+            unit: 'mm', 
+            format: [210, pdfHeightMm], 
+            orientation: 'portrait' 
+          }
+        };
+
+        // 4. Ejecución
+        await html2pdf().set(opt).from(element).save();
+        
+        console.log("¡PDF Generado con éxito!");
         setIsDownloading(false);
-        alert("Error al generar PDF. Si tienes una foto externa, prueba a quitarla.");
-      });
+
+    } catch (err) {
+        console.error("CRASH PDF:", err);
+        setIsDownloading(false);
+        // AQUI ESTA LA CLAVE: Mostramos el error real en la alerta
+        alert(`❌ ERROR TÉCNICO:\n${err.message || JSON.stringify(err)}\n\nRevisa la consola (F12) para más detalles.`);
+    }
   };
 
   return (
