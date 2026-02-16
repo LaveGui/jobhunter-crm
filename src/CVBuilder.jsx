@@ -1,12 +1,12 @@
 import { useState, useRef } from 'react';
 import { Link } from "react-router-dom";
-import html2pdf from 'html2pdf.js'; // <--- IMPORTANTE: La librería que reinstalamos
+import html2pdf from 'html2pdf.js';
 import { Mail, Phone, MapPin, Linkedin, Trash2, PlusCircle, Printer, ArrowLeft, LayoutTemplate, Globe, Download } from 'lucide-react';
 
 export default function CVBuilder() {
   // --- ESTADO INICIAL ---
   const [cv, setCv] = useState({
-    themeColor: '#2563eb',
+    themeColor: '#2563eb', // Hexadecimal seguro
     personal: {
       name: "Guido Lavesari",
       title: "Product Marketing Manager",
@@ -31,8 +31,9 @@ export default function CVBuilder() {
     ],
     skills: ["HubSpot", "Braze", "Salesforce", "Zapier"]
   });
-const [isDownloading, setIsDownloading] = useState(false);
-  const componentRef = useRef(); // Referencia al documento CV
+
+  const [isDownloading, setIsDownloading] = useState(false);
+  const componentRef = useRef();
 
   // --- CONTROLADORES ---
   const handlePersonalChange = (e) => setCv({ ...cv, personal: { ...cv.personal, [e.target.name]: e.target.value } });
@@ -44,29 +45,15 @@ const [isDownloading, setIsDownloading] = useState(false);
     setCv({ ...cv, [section]: updated });
   };
 
-// --- LÓGICA DEPURACIÓN PDF ---
+  // --- GENERADOR PDF (Fixed Colors) ---
   const handleDownloadPDF = async () => {
     setIsDownloading(true);
     const element = componentRef.current;
 
     try {
-        // 1. Verificación básica
-        if (!element) throw new Error("No se encuentra el elemento del CV (Referencia null)");
-        
-        console.log("Iniciando generación de PDF...");
-        console.log("Elemento a imprimir:", element);
-
-        // 2. Calcular altura
         const elementHeightPx = element.scrollHeight;
-        const elementWidthPx = element.scrollWidth;
-        console.log(`Dimensiones detectadas: ${elementWidthPx} x ${elementHeightPx} px`);
-
-        if (elementHeightPx === 0) throw new Error("La altura del CV es 0. El elemento podría estar oculto.");
-
         const pdfHeightMm = (elementHeightPx * 0.264583) + 2;
-        console.log(`Altura PDF calculada: ${pdfHeightMm} mm`);
 
-        // 3. Configuración Simplificada (Modo Seguro)
         const opt = {
           margin: 0,
           filename: `CV_${cv.personal.name.replace(/\s+/g, '_')}.pdf`,
@@ -74,9 +61,9 @@ const [isDownloading, setIsDownloading] = useState(false);
           html2canvas: { 
             scale: 2, 
             useCORS: true, 
-            logging: true, // Esto mostrará el proceso interno en la consola
             scrollY: 0,
-            windowWidth: element.scrollWidth // Ayuda a prevenir cortes horizontales
+            // Importante: Forzamos fondo blanco para evitar transparencias raras
+            backgroundColor: '#ffffff'
           },
           jsPDF: { 
             unit: 'mm', 
@@ -85,17 +72,13 @@ const [isDownloading, setIsDownloading] = useState(false);
           }
         };
 
-        // 4. Ejecución
         await html2pdf().set(opt).from(element).save();
-        
-        console.log("¡PDF Generado con éxito!");
         setIsDownloading(false);
 
     } catch (err) {
-        console.error("CRASH PDF:", err);
+        console.error("PDF Error:", err);
         setIsDownloading(false);
-        // AQUI ESTA LA CLAVE: Mostramos el error real en la alerta
-        alert(`❌ ERROR TÉCNICO:\n${err.message || JSON.stringify(err)}\n\nRevisa la consola (F12) para más detalles.`);
+        alert(`❌ Error: ${err.message}`);
     }
   };
 
@@ -208,16 +191,19 @@ const [isDownloading, setIsDownloading] = useState(false);
       {/* ================= PREVIEW (DERECHA) ================= */}
       <main className="flex-1 bg-gray-500 overflow-y-auto p-4 md:p-8 flex justify-center">
         
-        {/* HOJA DE CV */}
+        {/* HOJA DE CV 
+            NOTA: He cambiado las clases 'text-slate-800' por 'text-[#1e293b]' 
+            para evitar el error "oklab" de Tailwind v4.
+        */}
         <div 
           ref={componentRef}
-          className="bg-white shadow-2xl w-[210mm] flex items-stretch min-h-[297mm]"
+          className="bg-[#ffffff] shadow-2xl w-[210mm] flex items-stretch min-h-[297mm]"
           style={{ height: 'fit-content' }} 
         >
           
           {/* COLUMNA IZQUIERDA */}
-          <div style={{ backgroundColor: cv.themeColor }} className="w-[32%] text-white p-6 pt-10 flex flex-col shrink-0">
-            <div className="w-28 h-28 bg-white/20 rounded-full mx-auto mb-6 overflow-hidden border-4 border-white/30 flex items-center justify-center shrink-0">
+          <div style={{ backgroundColor: cv.themeColor }} className="w-[32%] text-[#ffffff] p-6 pt-10 flex flex-col shrink-0">
+            <div className="w-28 h-28 bg-[#ffffff]/20 rounded-full mx-auto mb-6 overflow-hidden border-4 border-[#ffffff]/30 flex items-center justify-center shrink-0">
                {cv.personal.photoUrl ? (
                  <img src={cv.personal.photoUrl} alt="Profile" className="w-full h-full object-cover" crossOrigin="anonymous" />
                ) : (
@@ -228,8 +214,8 @@ const [isDownloading, setIsDownloading] = useState(false);
             <div className="space-y-6 text-sm flex-1">
               {/* CONTACTO */}
               <div>
-                <h3 className="font-bold uppercase tracking-wider mb-2 border-b border-white/30 pb-1 text-white/90 text-xs">Contacto</h3>
-                <ul className="space-y-2 text-white/80 text-xs">
+                <h3 className="font-bold uppercase tracking-wider mb-2 border-b border-[#ffffff]/30 pb-1 text-[#ffffff]/90 text-xs">Contacto</h3>
+                <ul className="space-y-2 text-[#ffffff]/80 text-xs">
                   <li className="flex items-center gap-2"><Phone size={12}/> {cv.personal.phone}</li>
                   <li className="flex items-center gap-2"><Mail size={12}/> <span className="break-all">{cv.personal.email}</span></li>
                   <li className="flex items-center gap-2"><MapPin size={12}/> {cv.personal.location}</li>
@@ -239,17 +225,17 @@ const [isDownloading, setIsDownloading] = useState(false);
               
               {/* SKILLS */}
               <div>
-                <h3 className="font-bold uppercase tracking-wider mb-2 border-b border-white/30 pb-1 text-white/90 text-xs">Skills</h3>
+                <h3 className="font-bold uppercase tracking-wider mb-2 border-b border-[#ffffff]/30 pb-1 text-[#ffffff]/90 text-xs">Skills</h3>
                 <div className="flex flex-wrap gap-1">
-                  {cv.skills.map((s, i) => <span key={i} className="bg-white/10 px-2 py-0.5 rounded text-[10px]">{s}</span>)}
+                  {cv.skills.map((s, i) => <span key={i} className="bg-[#ffffff]/10 px-2 py-0.5 rounded text-[10px]">{s}</span>)}
                 </div>
               </div>
 
               {/* EDUCACIÓN */}
               <div>
-                <h3 className="font-bold uppercase tracking-wider mb-2 border-b border-white/30 pb-1 text-white/90 text-xs">Educación</h3>
+                <h3 className="font-bold uppercase tracking-wider mb-2 border-b border-[#ffffff]/30 pb-1 text-[#ffffff]/90 text-xs">Educación</h3>
                 {cv.education.map((edu) => (
-                   <div key={edu.id} className="mb-3 text-white/80">
+                   <div key={edu.id} className="mb-3 text-[#ffffff]/80">
                      <p className="font-bold text-xs">{edu.degree}</p>
                      <p className="text-[10px] opacity-70">{edu.school}</p>
                      <p className="text-[10px] opacity-70">{edu.date}</p>
@@ -260,9 +246,9 @@ const [isDownloading, setIsDownloading] = useState(false);
               {/* IDIOMAS */}
               {cv.languages.length > 0 && (
                 <div>
-                  <h3 className="font-bold uppercase tracking-wider mb-2 border-b border-white/30 pb-1 text-white/90 text-xs">Idiomas</h3>
+                  <h3 className="font-bold uppercase tracking-wider mb-2 border-b border-[#ffffff]/30 pb-1 text-[#ffffff]/90 text-xs">Idiomas</h3>
                   {cv.languages.map((lang) => (
-                    <div key={lang.id} className="mb-2 flex justify-between items-baseline text-white/80 text-xs">
+                    <div key={lang.id} className="mb-2 flex justify-between items-baseline text-[#ffffff]/80 text-xs">
                       <span className="font-semibold">{lang.language}</span>
                       <span className="opacity-70 text-[10px]">{lang.level}</span>
                     </div>
@@ -273,33 +259,33 @@ const [isDownloading, setIsDownloading] = useState(false);
           </div>
 
           {/* COLUMNA DERECHA */}
-          <div className="w-[68%] p-8 pt-10 text-slate-800 bg-white flex flex-col">
+          <div className="w-[68%] p-8 pt-10 text-[#1e293b] bg-[#ffffff] flex flex-col">
             <header className="mb-6 border-b-2 pb-4 shrink-0" style={{ borderColor: cv.themeColor }}>
-              <h1 className="text-3xl font-extrabold uppercase tracking-tight leading-none mb-1">{cv.personal.name}</h1>
+              <h1 className="text-3xl font-extrabold uppercase tracking-tight leading-none mb-1 text-[#1e293b]">{cv.personal.name}</h1>
               <h2 className="text-lg font-medium" style={{ color: cv.themeColor }}>{cv.personal.title}</h2>
             </header>
 
             <section className="mb-6 shrink-0">
-              <h3 className="text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
-                <span className="p-1 text-white rounded" style={{ backgroundColor: cv.themeColor }}><LayoutTemplate size={12}/></span> Perfil
+              <h3 className="text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-2 text-[#334155]">
+                <span className="p-1 text-[#ffffff] rounded" style={{ backgroundColor: cv.themeColor }}><LayoutTemplate size={12}/></span> Perfil
               </h3>
-              <p className="text-xs text-slate-600 leading-relaxed text-justify">{cv.personal.summary}</p>
+              <p className="text-xs text-[#475569] leading-relaxed text-justify">{cv.personal.summary}</p>
             </section>
 
             <section className="flex-1">
-              <h3 className="text-xs font-bold uppercase tracking-wider mb-4 flex items-center gap-2">
-                <span className="p-1 text-white rounded" style={{ backgroundColor: cv.themeColor }}><LayoutTemplate size={12}/></span> Experiencia
+              <h3 className="text-xs font-bold uppercase tracking-wider mb-4 flex items-center gap-2 text-[#334155]">
+                <span className="p-1 text-[#ffffff] rounded" style={{ backgroundColor: cv.themeColor }}><LayoutTemplate size={12}/></span> Experiencia
               </h3>
               <div className="space-y-5">
                 {cv.experience.map((exp) => (
                   <div key={exp.id} className="relative pl-3 border-l-2" style={{ borderColor: cv.themeColor + '40' }}>
                     <div className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full" style={{ backgroundColor: cv.themeColor }}></div>
                     <div className="flex justify-between items-baseline mb-0.5">
-                      <h4 className="font-bold text-sm">{exp.role}</h4>
-                      <span className="text-[10px] font-bold bg-gray-100 px-1.5 py-0.5 rounded text-gray-500">{exp.date}</span>
+                      <h4 className="font-bold text-sm text-[#1e293b]">{exp.role}</h4>
+                      <span className="text-[10px] font-bold bg-[#f3f4f6] px-1.5 py-0.5 rounded text-[#64748b]">{exp.date}</span>
                     </div>
                     <p className="text-xs font-semibold mb-1" style={{ color: cv.themeColor }}>{exp.company}</p>
-                    <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">{exp.description}</p>
+                    <p className="text-xs text-[#475569] leading-relaxed whitespace-pre-line">{exp.description}</p>
                   </div>
                 ))}
               </div>
