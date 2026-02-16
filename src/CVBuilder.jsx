@@ -83,18 +83,19 @@ export default function CVBuilder() {
     }
   };
 
-  // --- CLASES PARA DEBUGGING (ESTILO SEGURO) ---
-  // Usamos una clase CSS normal definida abajo en <style>, NO Tailwind con opacidad
+  // --- CLASES PARA DEBUGGING (MODO SEGURO) ---
   const debugClass = debugMode ? "debug-box" : "";
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row font-sans">
       
-      {/* ESTILOS CSS MANUALES (Para evitar errores de Tailwind/oklab) */}
+      {/* ESTILOS CSS MANUALES 
+          IMPORTANTE: Usamos 'outline' rojo sólido. 
+          NADA de transparencias (rgba) para evitar el error 'oklab'.
+      */}
       <style>{`
         .debug-box {
-          outline: 1px solid red !important;
-          background-color: rgba(255, 0, 0, 0.05) !important;
+          outline: 1px solid #ff0000 !important;
         }
       `}</style>
 
@@ -272,7 +273,6 @@ export default function CVBuilder() {
                 <h3 className="font-bold uppercase tracking-wider mb-3 pb-2 text-xs" style={{ borderBottom: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.9)' }}>Skills</h3>
                 <div className="flex flex-wrap gap-2">
                   {cv.skills.map((s, i) => (
-                    // Ajuste de alineación estándar para debug: py-1 px-2 leading-none
                     <span key={i} className={`px-2 py-1 rounded text-[10px] leading-none ${debugClass}`} style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}>
                       {s}
                     </span>
