@@ -57,13 +57,13 @@ export default function CVBuilder() {
         const opt = {
           margin: 0,
           filename: `CV_${cv.personal.name.replace(/\s+/g, '_')}.pdf`,
-          image: { type: 'jpeg', quality: 0.98 }, // Calidad máxima imagen
+          image: { type: 'jpeg', quality: 0.98 },
           html2canvas: { 
-            scale: 2, // Mantenemos escala x2 para nitidez
+            scale: 2, 
             useCORS: true, 
             scrollY: 0,
             backgroundColor: '#ffffff',
-            letterRendering: true // Ayuda con el espaciado de fuentes
+            letterRendering: true
           },
           jsPDF: { 
             unit: 'mm', 
@@ -87,7 +87,7 @@ export default function CVBuilder() {
       
       {/* ================= EDITOR (IZQUIERDA) ================= */}
       <aside className="w-full md:w-[450px] bg-white h-screen overflow-y-auto border-r border-gray-200 shadow-xl z-10 print:hidden flex flex-col">
-        {/* Header Editor */}
+        {/* Header */}
         <div className="p-4 bg-slate-900 text-white flex justify-between items-center sticky top-0 z-20">
           <div className="flex items-center gap-2">
             <Link to="/" className="hover:bg-slate-700 p-2 rounded"><ArrowLeft size={20}/></Link>
@@ -193,7 +193,7 @@ export default function CVBuilder() {
       {/* ================= PREVIEW (DERECHA) ================= */}
       <main className="flex-1 bg-gray-500 overflow-y-auto p-4 md:p-8 flex justify-center">
         
-        {/* HOJA DE CV BLINDADA */}
+        {/* HOJA DE CV */}
         <div 
           ref={componentRef}
           className="shadow-2xl w-[210mm] flex items-stretch min-h-[297mm]"
@@ -220,35 +220,37 @@ export default function CVBuilder() {
 
             <div className="space-y-8 text-sm flex-1">
               
-              {/* CONTACTO - Alineación Fix: items-start y mt-[2px] para el icono */}
+              {/* CONTACTO - Alineación Fix */}
               <div>
                 <h3 className="font-bold uppercase tracking-wider mb-3 pb-2 text-xs" style={{ borderBottom: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.9)' }}>Contacto</h3>
                 <ul className="space-y-3 text-xs" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                  <li className="flex items-start gap-3">
-                    <div className="mt-[2px]"><Phone size={14}/></div> 
+                  <li className="flex items-center gap-3">
+                    <div className="shrink-0"><Phone size={14}/></div> 
                     <span>{cv.personal.phone}</span>
                   </li>
-                  <li className="flex items-start gap-3">
-                    <div className="mt-[2px]"><Mail size={14}/></div> 
+                  <li className="flex items-center gap-3">
+                    <div className="shrink-0"><Mail size={14}/></div> 
                     <span className="break-all">{cv.personal.email}</span>
                   </li>
-                  <li className="flex items-start gap-3">
-                    <div className="mt-[2px]"><MapPin size={14}/></div> 
+                  <li className="flex items-center gap-3">
+                    <div className="shrink-0"><MapPin size={14}/></div> 
                     <span>{cv.personal.location}</span>
                   </li>
-                  <li className="flex items-start gap-3">
-                    <div className="mt-[2px]"><Linkedin size={14}/></div> 
-                    <span className="truncate w-32">{cv.personal.linkedin}</span>
+                  <li className="flex items-center gap-3">
+                    <div className="shrink-0"><Linkedin size={14}/></div> 
+                    {/* Quitamos truncate para que no se corte, usamos break-all si es muy largo */}
+                    <span className="break-all">{cv.personal.linkedin}</span>
                   </li>
                 </ul>
               </div>
               
-              {/* SKILLS - Fix: py-1 para que no se corte */}
+              {/* SKILLS - Alineación Centrada Fix */}
               <div>
                 <h3 className="font-bold uppercase tracking-wider mb-3 pb-2 text-xs" style={{ borderBottom: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.9)' }}>Skills</h3>
                 <div className="flex flex-wrap gap-2">
                   {cv.skills.map((s, i) => (
-                    <span key={i} className="px-2 py-1 rounded text-[10px] leading-none" style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}>
+                    // Flex y items-center para centrar texto en la caja
+                    <span key={i} className="px-2 py-1.5 rounded text-[10px] leading-normal flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}>
                       {s}
                     </span>
                   ))}
@@ -292,31 +294,32 @@ export default function CVBuilder() {
 
             {/* Perfil */}
             <section className="mb-8 shrink-0">
-              <h3 className="text-xs font-bold uppercase tracking-wider mb-3 flex items-start gap-2" style={{ color: '#334155' }}>
-                <span className="p-1 rounded mt-[-2px]" style={{ backgroundColor: cv.themeColor, color: '#ffffff' }}><LayoutTemplate size={12}/></span> 
-                <span className="mt-[1px]">Perfil</span>
+              {/* Alineación Icono Título: items-center para centrar verticalmente */}
+              <h3 className="text-xs font-bold uppercase tracking-wider mb-3 flex items-center gap-2" style={{ color: '#334155' }}>
+                <span className="p-1 rounded flex items-center justify-center" style={{ backgroundColor: cv.themeColor, color: '#ffffff' }}><LayoutTemplate size={12}/></span> 
+                <span>Perfil</span>
               </h3>
               <p className="text-xs leading-relaxed text-justify" style={{ color: '#475569' }}>{cv.personal.summary}</p>
             </section>
 
             {/* Experiencia */}
             <section className="flex-1">
-              <h3 className="text-xs font-bold uppercase tracking-wider mb-5 flex items-start gap-2" style={{ color: '#334155' }}>
-                <span className="p-1 rounded mt-[-2px]" style={{ backgroundColor: cv.themeColor, color: '#ffffff' }}><LayoutTemplate size={12}/></span> 
-                <span className="mt-[1px]">Experiencia</span>
+              <h3 className="text-xs font-bold uppercase tracking-wider mb-5 flex items-center gap-2" style={{ color: '#334155' }}>
+                <span className="p-1 rounded flex items-center justify-center" style={{ backgroundColor: cv.themeColor, color: '#ffffff' }}><LayoutTemplate size={12}/></span> 
+                <span>Experiencia</span>
               </h3>
               
               <div className="space-y-6">
                 {cv.experience.map((exp) => (
                   <div key={exp.id} className="relative pl-4" style={{ borderLeft: `2px solid ${cv.themeColor}40` }}>
                     
-                    {/* Punto del Timeline - Ajustado top-2 */}
-                    <div className="absolute -left-[5px] top-2 w-2 h-2 rounded-full" style={{ backgroundColor: cv.themeColor }}></div>
+                    {/* Punto del Timeline - Ajuste fino de posición para alineación con línea de 2px */}
+                    <div className="absolute top-1.5 w-2 h-2 rounded-full" style={{ backgroundColor: cv.themeColor, left: '-5px' }}></div>
                     
                     <div className="flex justify-between items-start mb-1">
                       <h4 className="font-bold text-sm" style={{ color: '#1e293b' }}>{exp.role}</h4>
-                      {/* Fecha Badge - Fix Padding y Line-height */}
-                      <span className="text-[10px] font-bold px-2 py-1 rounded leading-none whitespace-nowrap" style={{ backgroundColor: '#f3f4f6', color: '#64748b' }}>
+                      {/* Fecha Badge - Centrado Vertical Fix */}
+                      <span className="text-[10px] font-bold px-2 py-1 rounded flex items-center justify-center whitespace-nowrap" style={{ backgroundColor: '#f3f4f6', color: '#64748b' }}>
                         {exp.date}
                       </span>
                     </div>
