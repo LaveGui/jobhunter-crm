@@ -44,39 +44,46 @@ export default function CVBuilder() {
     setCv({ ...cv, [section]: updated });
   };
 
-  // --- NUEVA LÓGICA DE DESCARGA PDF ---
+ // --- LÓGICA DE DESCARGA PDF ---
   const componentRef = useRef();
 
   const handleDownloadPDF = () => {
     const element = componentRef.current;
     setIsDownloading(true);
 
-    // 1. Calcular la altura real del contenido para hacer un PDF "Infinito"
-    // Un A4 normal mide 297mm de alto. Nosotros calculamos cuánto mide el tuyo.
     const elementHeightPx = element.scrollHeight;
-    const pxToMm = 0.264583; // Factor de conversión estándar
-    const pdfHeightMm = Math.max(elementHeightPx * pxToMm, 297); // Mínimo un A4, si es más largo, crece.
+    const pxToMm = 0.264583;
+    const pdfHeightMm = Math.max(elementHeightPx * pxToMm + 10, 297); // +10mm de margen extra por seguridad
 
     const opt = {
       margin: 0,
       filename: `CV_${cv.personal.name.replace(/\s+/g, '_')}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { 
-        scale: 2, // Aumentamos la calidad (Retina)
-        useCORS: true, // Importante para cargar tu foto de LinkedIn
-        scrollY: 0 
+        scale: 2, 
+        useCORS: true, // Vital para fotos externas
+        logging: true, // Para ver errores en consola si falla
+        scrollY: 0
       },
       jsPDF: { 
         unit: 'mm', 
-        format: [210, pdfHeightMm], // <--- AQUÍ ESTÁ LA MAGIA (Ancho fijo, Alto dinámico)
+        format: [210, pdfHeightMm], 
         orientation: 'portrait' 
       }
     };
 
-    // Generar y Guardar
-    html2pdf().set(opt).from(element).save().then(() => {
-      setIsDownloading(false);
-    });
+    html2pdf()
+      .set(opt)
+      .from(element)
+      .save()
+      .then(() => {
+        setIsDownloading(false);
+      })
+      .catch((err) => {
+        console.error("Error al generar PDF:", err);
+        setIsDownloading(false);
+        alert("❌ Error: No se pudo generar el PDF. \n\nCausa probable: La foto de perfil externa está bloqueando la descarga por seguridad del navegador.\n\nPrueba borrando la URL de la foto temporalmente.");
+      });
   };
 
   return (
@@ -109,6 +116,7 @@ export default function CVBuilder() {
              <div>
                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Foto URL</label>
                <input name="photoUrl" placeholder="https://..." value={cv.personal.photoUrl} onChange={handlePersonalChange} className="w-full border p-2 rounded text-xs"/>
+               <p className="text-[10px] text-gray-400 mt-1">Si falla la descarga, borra esto.</p>
              </div>
           </section>
 
@@ -189,17 +197,26 @@ export default function CVBuilder() {
       {/* ================= PREVIEW (DERECHA) ================= */}
       <main className="flex-1 bg-gray-500 overflow-y-auto p-4 md:p-8 flex justify-center">
         
-        {/* CONTENEDOR DE LA HOJA - REFERENCIA PARA HTML2PDF */}
+        {/* CONTENEDOR DE LA HOJA */}
         <div 
           ref={componentRef} 
           className="bg-white shadow-2xl w-[210mm] flex items-stretch min-h-[297mm]"
-          style={{ height: 'fit-content' }} // Importante para que el plugin lea la altura real
+          style={{ height: 'fit-content' }} 
         >
           
           {/* COLUMNA IZQUIERDA */}
           <div style={{ backgroundColor: cv.themeColor }} className="w-[32%] text-white p-6 pt-10 flex flex-col shrink-0">
             <div className="w-28 h-28 bg-white/20 rounded-full mx-auto mb-6 overflow-hidden border-4 border-white/30 flex items-center justify-center shrink-0">
-               {cv.personal.photoUrl ? <img src={cv.personal.photoUrl} alt="Profile" className="w-full h-full object-cover" /> : <span className="text-4xl font-bold">{cv.personal.name.charAt(0)}</span>}
+               {cv.personal.photoUrl ? (
+                 <img 
+                   src={cv.personal.photoUrl} 
+                   alt="Profile" 
+                   className="w-full h-full object-cover" 
+                   crossOrigin="anonymous" // <--- ESTO ES CLAVE PARA QUE NO FALLE
+                 />
+               ) : (
+                 <span className="text-4xl font-bold">{cv.personal.name.charAt(0)}</span>
+               )}
             </div>
 
             <div className="space-y-6 text-sm flex-1">
