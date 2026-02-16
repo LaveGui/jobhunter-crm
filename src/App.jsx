@@ -1,67 +1,81 @@
 import { useState, useEffect } from 'react';
-import { Link } from "react-router-dom";
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import JobModal from './JobModal';
+import { Plus, Search, Building2, MapPin, Calendar, DollarSign, Heart } from 'lucide-react';
+import useGoogleSheets from './hooks/useGoogleSheets';
+import JobModal from './components/JobModal';
+import { Link } from "react-router-dom";
 
-// ⚠️ TU URL AQUÍ
-const API_URL = "https://script.google.com/macros/s/AKfycbwAbjv_WQZI3rTdaBho5BI1yYYhRxnfXzX_NC-NRXDCEA1BLc7cB0FBdkhDEukJzuFMfA/exec"; 
-
-const PIPELINE_STAGES = [
-  { name: 'Prospecto', color: 'bg-gray-100 border-gray-300' },
-  { name: 'Aplicado', color: 'bg-blue-50 border-blue-200' },
-  { name: 'Entrevista', color: 'bg-yellow-50 border-yellow-200' },
-  { name: 'Oferta', color: 'bg-green-50 border-green-200' },
-  { name: 'Descartado', color: 'bg-red-50 border-red-200' }
-];
-
-function App() {
-  const [prospects, setProspects] = useState([]);
-  const [loading, setLoading] = useState(true);
+export default function App() {
+  const { jobs, loading, error, addJob, updateJob, deleteJob } = useGoogleSheets();
+  const [columns, setColumns] = useState({
+    'Prospecto': [], 'Aplicado': [], 'Entrevista': [], 'Oferta': [], 'Descartado': []
+  });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentJob, setCurrentJob] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
-  useEffect(() => { fetchData(); }, []);
-
-  const fetchData = () => {
-    fetch(API_URL).then(res => res.json()).then(data => {
-      // Nos aseguramos de ordenar los datos para que no "bailen" al renderizar
-      const sortedData = Array.isArray(data) ? data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) : [];
-      setProspects(sortedData);
-      setLoading(false);
-    });
-  };
-
-  const handleOpenCreate = () => { setCurrentJob(null); setIsModalOpen(true); };
-  const handleOpenEdit = (job) => { setCurrentJob(job); setIsModalOpen(true); };
-
-  const handleSaveJob = (jobData) => {
-    setLoading(true);
-    const action = currentJob ? 'update' : 'create';
-    const payload = { action, ...jobData, id: currentJob?.id, last_updated: new Date() }; 
-
-    // Optimismo UI: Actualizamos localmente antes de esperar al servidor
-    if (action === 'create') {
-        // Inventamos un ID temporal para que se vea ya
-        setProspects(prev => [...prev, { ...jobData, id: `temp-${Date.now()}`, created_at: new Date() }]);
-    } else {
-        setProspects(prev => prev.map(p => p.id === currentJob.id ? { ...p, ...jobData } : p));
+  // Sincronizar jobs con columnas
+  useEffect(() => {
+    if (jobs.length > 0) {
+      const newCols = { 'Prospecto': [], 'Aplicado': [], 'Entrevista': [], 'Oferta': [], 'Descartado': [] };
+      jobs.forEach(job => {
+        if (newCols[job.status]) {
+          newCols[job.status].push(job);
+        } else {
+          newCols['Prospecto'].push(job);
+        }
+      });
+      setColumns(newCols);
     }
-    
-    // Enviamos a Google Sheets
-    fetch(API_URL, { method: "POST", body: JSON.stringify(payload) })
-    .then(res => res.json())
-    .then(() => {
-      fetchData(); // Sincronizamos ID real y datos finales
-      setIsModalOpen(false);
-    })
-    .catch(err => {
-      console.error(err);
-      alert("Error al guardar");
-      setLoading(false);
-    });
+  }, [jobs]);
+
+  const onDragEnd = (result) => {
+    if (!result.destination) return;
+    const { source, destination } = result;
+
+    if (source.droppableId !== destination.droppableId) {
+      const sourceCol = [...columns[source.droppableId]];
+      const destCol = [...columns[destination.droppableId]];
+      const [movedJob] = sourceCol.splice(source.index, 1);
+      
+      const newStatus = destination.droppableId;
+      destCol.splice(destination.index, 0, { ...movedJob, status: newStatus });
+
+      setColumns({ ...columns, [source.droppableId]: sourceCol, [destination.droppableId]: destCol });
+
+      // Si movemos a Aplicado, podríamos marcar fecha automática si no existe
+      let extraUpdates = {};
+      if (newStatus === 'Aplicado' && !movedJob.date_applied) {
+         extraUpdates.date_applied = new Date().toLocaleDateString();
+      }
+
+      updateJob({ 
+        ...movedJob, 
+        status: newStatus, 
+        last_updated: new Date(),
+        ...extraUpdates
+      });
+    }
   };
 
-  // Calcular días desde la última actualización
+  const handleSaveJob = async (jobData) => {
+    const action = currentJob ? 'update' : 'create';
+    // Nos aseguramos de que last_updated siempre se envíe
+    const payload = { 
+      ...jobData, 
+      id: currentJob?.id,
+      last_updated: new Date()
+    };
+    
+    if (action === 'create') {
+      await addJob(payload);
+    } else {
+      await updateJob(payload);
+    }
+    setIsModalOpen(false);
+  };
+
+  // Función para calcular días sin actividad
   const getDaysInactive = (dateString) => {
     if (!dateString) return 0;
     const lastDate = new Date(dateString);
@@ -70,141 +84,141 @@ function App() {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
   };
 
-  // --- LÓGICA DE DRAG & DROP ---
-  const onDragEnd = (result) => {
-    const { source, destination, draggableId } = result;
-
-    // 1. Si se soltó fuera del tablero o en el mismo sitio, no hacemos nada
-    if (!destination) return;
-    if (source.droppableId === destination.droppableId && source.index === destination.index) return;
-
-    // 2. Buscamos el trabajo que se movió
-    const movedJob = prospects.find(p => p.id.toString() === draggableId);
-    if (!movedJob) return;
-
-    // 3. ACTUALIZACIÓN OPTIMISTA (Feedback instantáneo)
-    // Creamos una copia del array cambiando solo el estado de esa tarjeta
-    const newStatus = destination.droppableId;
-    
-    const updatedProspects = prospects.map(p => 
-      p.id.toString() === draggableId ? { ...p, status: newStatus } : p
-    );
-    setProspects(updatedProspects);
-
-    // 4. Enviar cambio a la API (Google Sheets) en segundo plano
-    const payload = {
-        action: 'update',
-        ...movedJob,
-        status: newStatus, 
-        last_updated: new Date()
-    };
-
-    fetch(API_URL, { method: "POST", body: JSON.stringify(payload) })
-      .catch(err => {
-          console.error("Error moviendo tarjeta", err);
-          alert("Hubo un error al mover la tarjeta. Recarga la página.");
-          fetchData(); // Revertimos si falla
-      });
-  };
-
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col font-sans h-screen overflow-hidden">
+    <div className="min-h-screen bg-slate-100 font-sans text-slate-900">
       
       {/* HEADER */}
-      <header className="bg-white shadow-sm border-b px-4 py-3 flex justify-between items-center shrink-0 z-10 relative">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">🚀</span>
-          <h1 className="text-lg md:text-xl font-bold text-gray-800 hidden md:block">JobHunter CRM</h1>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={handleOpenCreate} className="bg-slate-900 hover:bg-slate-800 text-white px-3 py-2 rounded text-sm font-bold flex items-center gap-2">
-            <span>+</span> <span className="hidden md:inline">Nueva Oportunidad</span>
-          </button>
-          <Link to="/cv" className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-bold">CV Studio</Link>
+      <header className="bg-slate-900 text-white p-4 shadow-lg sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">🚀</span>
+            <h1 className="text-xl font-bold tracking-tight">JobHunter CRM</h1>
+          </div>
+          <div className="flex gap-3">
+            <Link to="/cv" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-sm transition-colors shadow-lg shadow-blue-900/50">
+              CV Studio
+            </Link>
+            <button 
+              onClick={() => { setCurrentJob(null); setIsModalOpen(true); }}
+              className="bg-white text-slate-900 hover:bg-slate-100 px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-colors"
+            >
+              <Plus size={16} /> Nueva Oportunidad
+            </button>
+          </div>
         </div>
       </header>
 
-      {/* CONTEXTO DE ARRASTRE */}
-      <DragDropContext onDragEnd={onDragEnd}>
-        <main className="flex-1 overflow-x-auto overflow-y-hidden bg-slate-200/50">
-          <div className="h-full flex flex-col md:flex-row p-4 gap-4 md:min-w-max overflow-y-auto md:overflow-y-hidden">
-            
-            {loading && <div className="text-center w-full mt-10">Cargando...</div>}
+      {/* FILTROS & BÚSQUEDA */}
+      <div className="max-w-7xl mx-auto p-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-2.5 text-slate-400" size={20} />
+          <input 
+            type="text" 
+            placeholder="Buscar por empresa o puesto..." 
+            className="w-full pl-10 pr-4 py-2 rounded-lg border-slate-200 border focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+      </div>
 
-            {!loading && PIPELINE_STAGES.map((stage) => {
-              // Filtramos las tarjetas de esta columna
-              const columnProspects = prospects.filter(p => p.status === stage.name);
+      {/* KANBAN BOARD */}
+      <main className="max-w-7xl mx-auto p-4 overflow-x-auto h-[calc(100vh-140px)]">
+        {loading && <p className="text-center text-slate-500">Cargando tu pipeline...</p>}
+        {error && <p className="text-center text-red-500">Error: {error}</p>}
+        
+        <DragDropContext onDragEnd={onDragEnd}>
+          <div className="flex gap-6 min-w-max h-full">
+            {Object.keys(columns).map((colId) => (
+              <Droppable key={colId} droppableId={colId}>
+                {(provided) => (
+                  <div 
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className="bg-slate-200/50 rounded-xl p-4 w-80 flex flex-col h-full border border-slate-200"
+                  >
+                    <div className="flex justify-between items-center mb-4 px-1">
+                      <h2 className="font-bold text-slate-700 uppercase text-xs tracking-wider">{colId}</h2>
+                      <span className="bg-slate-300 text-slate-600 text-xs font-bold px-2 py-0.5 rounded-full">
+                        {columns[colId].filter(job => job.company.toLowerCase().includes(searchTerm.toLowerCase())).length}
+                      </span>
+                    </div>
 
-              return (
-                <div key={stage.name} className="w-full md:w-80 flex flex-col h-fit md:h-full shrink-0">
-                  
-                  {/* CABECERA */}
-                  <div className={`flex justify-between items-center px-4 py-3 rounded-t-lg border-b-2 font-bold text-gray-700 ${stage.color}`}>
-                    <span>{stage.name}</span>
-                    <span className="bg-white/60 px-2 rounded text-xs">{columnProspects.length}</span>
-                  </div>
+                    <div className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
+                      {columns[colId]
+                        .filter(job => 
+                          job.company.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          job.title.toLowerCase().includes(searchTerm.toLowerCase())
+                        )
+                        .map((job, index) => (
+                        <Draggable key={job.id} draggableId={String(job.id)} index={index}>
+                          {(provided) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              {...provided.dragHandleProps}
+                              onClick={() => { setCurrentJob(job); setIsModalOpen(true); }}
+                              className="bg-white p-4 rounded-lg shadow-sm border border-slate-100 hover:shadow-md transition-all cursor-pointer group relative hover:border-slate-300"
+                            >
+                              {/* Indicador de Inactividad */}
+                              {getDaysInactive(job.last_updated) > 7 && (
+                                <div className="absolute top-2 right-2 w-2 h-2 bg-red-400 rounded-full" title="Sin actividad reciente"></div>
+                              )}
 
-                  {/* ZONA DROPPABLE (Donde soltamos) */}
-                  <Droppable droppableId={stage.name}>
-                    {(provided, snapshot) => (
-                      <div 
-                        {...provided.droppableProps}
-                        ref={provided.innerRef}
-                        className={`flex-1 p-2 rounded-b-lg border border-gray-200 overflow-y-auto min-h-[100px] md:min-h-0 transition-colors
-                          ${snapshot.isDraggingOver ? 'bg-blue-50/80' : 'bg-gray-100/50'}`}
-                      >
-                        {columnProspects.map((job, index) => (
-                          
-                          /* TARJETA DRAGGABLE (Lo que arrastramos) */
-                          <Draggable key={job.id} draggableId={job.id.toString()} index={index}>
-                            {(provided, snapshot) => (
-                              <div
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                {...provided.dragHandleProps}
-                                onClick={() => handleOpenEdit(job)}
-                                style={{ ...provided.draggableProps.style }} // Estilo necesario para que funcione el arrastre
-                                className={`bg-white p-3 rounded-lg shadow-sm mb-3 border border-gray-200 hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing group relative
-                                  ${snapshot.isDragging ? 'shadow-2xl rotate-2 ring-2 ring-blue-400 z-50' : ''}`}
-                              >
-                                <div className="flex justify-between items-start">
-                                  <h3 className="font-bold text-gray-800 leading-tight">{job.role}</h3>
-                                  {job.location_type === 'Remoto' && <span className="text-[10px] bg-purple-100 text-purple-700 px-1 rounded">🏠</span>}
-                                </div>
-                                <p className="text-blue-600 text-sm font-medium mb-2">{job.company}</p>
-                                <div className="text-xs text-gray-500 space-y-1">
-                                  {job.salary && <p>💰 {job.salary}</p>}
-                                  {job.interview_date && (
-                                    <p className="text-orange-600 font-semibold">📅 {new Date(job.interview_date).toLocaleDateString()}</p>
+                              {/* Título y Empresa (CORREGIDO DUPLICADO) */}
+                              <h3 className="font-bold text-slate-800 mb-1 leading-tight">{job.title}</h3>
+                              <p className="text-blue-600 text-sm font-semibold flex items-center gap-1">
+                                <Building2 size={12}/> {job.company}
+                              </p>
+
+                              {/* Metadatos Rápidos */}
+                              <div className="mt-3 space-y-1.5">
+                                <div className="flex items-center justify-between text-xs text-slate-500">
+                                  <div className="flex items-center gap-1">
+                                    <MapPin size={12}/> {job.location_type || 'Híbrido'}
+                                  </div>
+                                  {job.salary && (
+                                    <div className="flex items-center gap-1 text-green-600 font-medium">
+                                      <DollarSign size={12}/> {job.salary}
+                                    </div>
                                   )}
-                                  <p className="text-blue-600 text-sm font-medium mb-2">{job.company}</p>
-
-{/* ALERTA DE INACTIVIDAD (NUEVO) */}
-{getDaysInactive(job.last_updated) > 7 && (
-   <div className="bg-red-50 text-red-600 text-[10px] px-2 py-1 rounded mb-2 flex items-center gap-1 border border-red-100">
-      ⚠️ {getDaysInactive(job.last_updated)} días sin actividad
-   </div>
-)}
+                                </div>
+                                
+                                <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-50">
+                                  <div className="flex gap-0.5">
+                                    {[...Array(Number(job.enthusiasm) || 0)].map((_, i) => (
+                                      <Heart key={i} size={10} className="text-yellow-400 fill-current"/>
+                                    ))}
+                                  </div>
+                                  {job.date_applied && (
+                                    <span className="text-[10px] bg-green-50 text-green-700 px-1.5 py-0.5 rounded border border-green-100">
+                                      {job.date_applied}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
-                            )}
-                          </Draggable>
-
-                        ))}
-                        {provided.placeholder} {/* Hueco necesario para que no colapse */}
-                      </div>
-                    )}
-                  </Droppable>
-                </div>
-              );
-            })}
+                            </div>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </div>
+                  </div>
+                )}
+              </Droppable>
+            ))}
           </div>
-        </main>
-      </DragDropContext>
+        </DragDropContext>
+      </main>
 
-      <JobModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveJob} jobToEdit={currentJob} />
+      {isModalOpen && (
+        <JobModal 
+          job={currentJob} 
+          isOpen={isModalOpen} 
+          onClose={() => setIsModalOpen(false)} 
+          onSave={handleSaveJob} 
+        />
+      )}
     </div>
-  )
+  );
 }
-
-export default App
