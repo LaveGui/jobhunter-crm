@@ -44,17 +44,13 @@ const [isDownloading, setIsDownloading] = useState(false);
     setCv({ ...cv, [section]: updated });
   };
 
-  // --- LÓGICA "PDF INFINITO" (Basada en tu investigación) ---
+// --- LÓGICA "PDF INFINITO" ---
   const handleDownloadPDF = () => {
     setIsDownloading(true);
     const element = componentRef.current;
 
-    // 1. Calcular la altura real del contenido HTML
-    // (scrollHeight te da la altura total en píxeles)
+    // Calcular altura
     const elementHeightPx = element.scrollHeight;
-    
-    // 2. Convertir píxeles a milímetros (1px ≈ 0.264583 mm)
-    // Añadimos un pequeño margen de seguridad (+2mm)
     const pdfHeightMm = (elementHeightPx * 0.264583) + 2;
 
     const opt = {
@@ -62,14 +58,14 @@ const [isDownloading, setIsDownloading] = useState(false);
       filename: `CV_${cv.personal.name.replace(/\s+/g, '_')}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { 
-        scale: 2, // Mejor calidad (x2)
-        useCORS: true, // Intentar cargar imágenes externas
+        scale: 2, 
+        useCORS: true, 
         logging: true,
         scrollY: 0
       },
       jsPDF: { 
         unit: 'mm', 
-        format: [210, pdfHeightMm], // <--- AQUÍ ESTÁ EL TRUCO: Ancho fijo (A4), Alto dinámico
+        format: [210, pdfHeightMm], 
         orientation: 'portrait' 
       }
     };
@@ -195,11 +191,11 @@ const [isDownloading, setIsDownloading] = useState(false);
       {/* ================= PREVIEW (DERECHA) ================= */}
       <main className="flex-1 bg-gray-500 overflow-y-auto p-4 md:p-8 flex justify-center">
         
-        {/* HOJA DE CV - Usamos ref={componentRef} para que html2pdf sepa qué imprimir */}
+        {/* HOJA DE CV */}
         <div 
           ref={componentRef}
           className="bg-white shadow-2xl w-[210mm] flex items-stretch min-h-[297mm]"
-          style={{ height: 'fit-content' }} // Importante para que lea la altura real
+          style={{ height: 'fit-content' }} 
         >
           
           {/* COLUMNA IZQUIERDA */}
