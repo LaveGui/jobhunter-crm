@@ -1,6 +1,5 @@
 import { useState, useRef } from 'react';
 import { Link } from "react-router-dom";
-import html2pdf from 'html2pdf.js'; // <--- CAMBIO IMPORTANTE
 import { Mail, Phone, MapPin, Linkedin, Trash2, PlusCircle, Download, ArrowLeft, LayoutTemplate, Globe } from 'lucide-react';
 
 export default function CVBuilder() {
@@ -44,7 +43,7 @@ export default function CVBuilder() {
     setCv({ ...cv, [section]: updated });
   };
 
-// --- IMPRESIÓN NATIVA MEJORADA ---
+// --- IMPRESIÓN NATIVA (SIN LIBRERIAS EXTERNAS) ---
   const handlePrint = () => {
     window.print();
   };
@@ -52,23 +51,21 @@ export default function CVBuilder() {
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row font-sans">
       
-      {/* ESTILOS CRÍTICOS DE IMPRESIÓN 
-         Esto fuerza al navegador a ignorar el tamaño A4 y usar "lo que ocupe el contenido"
-      */}
+      {/* ESTILOS DE IMPRESIÓN: EL TRUCO PARA EL PDF INFINITO */}
       <style>{`
         @media print {
           @page {
-            size: auto;   /* Importante: Tamaño automático */
-            margin: 0mm;  /* Sin márgenes blancos */
+            size: auto;   /* Clave: Tamaño automático */
+            margin: 0mm;
           }
           body {
             background-color: white;
             -webkit-print-color-adjust: exact;
           }
-          /* Ocultar todo lo que no sea el CV */
+          /* Ocultamos la barra lateral y cabecera al imprimir */
           aside, header, .no-print { display: none !important; }
           
-          /* Forzar que el CV ocupe el 100% y se vea bien */
+          /* Forzamos al CV a ocupar todo el ancho */
           main { 
             width: 100% !important; 
             margin: 0 !important; 
@@ -98,7 +95,6 @@ export default function CVBuilder() {
           </button>
         </div>
 
-        {/* ... FORMULARIO (Igual que antes) ... */}
         <div className="p-6 space-y-8 pb-20">
           <section className="grid grid-cols-2 gap-4">
              <div>
@@ -188,7 +184,7 @@ export default function CVBuilder() {
       {/* ================= PREVIEW (DERECHA) ================= */}
       <main className="flex-1 bg-gray-500 overflow-y-auto p-4 md:p-8 flex justify-center print:p-0 print:bg-white print:m-0">
         
-        {/* HOJA DE CV - Le ponemos ID para controlarla */}
+        {/* HOJA DE CV */}
         <div 
           id="cv-document"
           className="bg-white shadow-2xl w-[210mm] flex items-stretch min-h-[297mm] print:w-full print:shadow-none"
