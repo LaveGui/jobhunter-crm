@@ -14,7 +14,7 @@ export default function CVBuilder() {
       phone: "+34 666 110 145",
       location: "Valencia, España",
       linkedin: "/in/guidolavesari",
-      photoUrl: "https://media.licdn.com/dms/image/v2/D4D03AQHeo6jBDnImhg/profile-displayphoto-shrink_200_200/profile-displayphoto-shrink_200_200/0/1719770203810?e=1772668800&v=beta&t=bpce329V0MDDEgr3KpEUot8XPT4bDR11HJc4E4KNVgY", 
+      photoUrl: "", 
       summary: "Profesional enfocado en Sales Enablement y Arquitectura de Software..."
     },
     experience: [
