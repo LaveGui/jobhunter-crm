@@ -33,7 +33,7 @@ export default function CVBuilder() {
   });
 
   const [isDownloading, setIsDownloading] = useState(false);
-  const [debugMode, setDebugMode] = useState(false); // <--- NUEVO ESTADO DEBUG
+  const [debugMode, setDebugMode] = useState(false);
   const componentRef = useRef();
 
   // --- CONTROLADORES ---
@@ -83,16 +83,24 @@ export default function CVBuilder() {
     }
   };
 
-  // --- CLASES PARA DEBUGGING VISUAL ---
-  // Si debugMode es true, añadimos bordes rojos a todo
-  const debugClass = debugMode ? "outline outline-1 outline-red-500/50 bg-red-500/10" : "";
+  // --- CLASES PARA DEBUGGING (ESTILO SEGURO) ---
+  // Usamos una clase CSS normal definida abajo en <style>, NO Tailwind con opacidad
+  const debugClass = debugMode ? "debug-box" : "";
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row font-sans">
       
+      {/* ESTILOS CSS MANUALES (Para evitar errores de Tailwind/oklab) */}
+      <style>{`
+        .debug-box {
+          outline: 1px solid red !important;
+          background-color: rgba(255, 0, 0, 0.05) !important;
+        }
+      `}</style>
+
       {/* ================= EDITOR (IZQUIERDA) ================= */}
       <aside className="w-full md:w-[450px] bg-white h-screen overflow-y-auto border-r border-gray-200 shadow-xl z-10 print:hidden flex flex-col">
-        {/* Header con Toggle Debug */}
+        {/* Header */}
         <div className="p-4 bg-slate-900 text-white flex justify-between items-center sticky top-0 z-20">
           <div className="flex items-center gap-2">
             <Link to="/" className="hover:bg-slate-700 p-2 rounded"><ArrowLeft size={20}/></Link>
@@ -100,7 +108,6 @@ export default function CVBuilder() {
           </div>
           
           <div className="flex items-center gap-3">
-            {/* BOTÓN DEBUG */}
             <button 
               onClick={() => setDebugMode(!debugMode)}
               className={`text-[10px] px-2 py-1 rounded border flex items-center gap-1 transition-all
@@ -241,22 +248,21 @@ export default function CVBuilder() {
               <div className={debugClass}>
                 <h3 className="font-bold uppercase tracking-wider mb-3 pb-2 text-xs" style={{ borderBottom: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.9)' }}>Contacto</h3>
                 <ul className="space-y-3 text-xs" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                  {/* ALINEACIÓN: flex items-center estricto */}
-                  <li className={`flex items-center gap-3 ${debugClass}`}>
-                    <div className="shrink-0 flex items-center justify-center w-4 h-4"><Phone size={14}/></div> 
-                    <span className="leading-none">{cv.personal.phone}</span>
+                  <li className={`flex items-start gap-3 ${debugClass}`}>
+                    <div className="shrink-0 w-4 h-4 flex items-center justify-center mt-[1px]"><Phone size={14}/></div> 
+                    <span className="leading-tight">{cv.personal.phone}</span>
                   </li>
-                  <li className={`flex items-center gap-3 ${debugClass}`}>
-                    <div className="shrink-0 flex items-center justify-center w-4 h-4"><Mail size={14}/></div> 
-                    <span className="break-all leading-none">{cv.personal.email}</span>
+                  <li className={`flex items-start gap-3 ${debugClass}`}>
+                    <div className="shrink-0 w-4 h-4 flex items-center justify-center mt-[1px]"><Mail size={14}/></div> 
+                    <span className="break-all leading-tight">{cv.personal.email}</span>
                   </li>
-                  <li className={`flex items-center gap-3 ${debugClass}`}>
-                    <div className="shrink-0 flex items-center justify-center w-4 h-4"><MapPin size={14}/></div> 
-                    <span className="leading-none">{cv.personal.location}</span>
+                  <li className={`flex items-start gap-3 ${debugClass}`}>
+                    <div className="shrink-0 w-4 h-4 flex items-center justify-center mt-[1px]"><MapPin size={14}/></div> 
+                    <span className="leading-tight">{cv.personal.location}</span>
                   </li>
-                  <li className={`flex items-center gap-3 ${debugClass}`}>
-                    <div className="shrink-0 flex items-center justify-center w-4 h-4"><Linkedin size={14}/></div> 
-                    <span className="break-all leading-none">{cv.personal.linkedin}</span>
+                  <li className={`flex items-start gap-3 ${debugClass}`}>
+                    <div className="shrink-0 w-4 h-4 flex items-center justify-center mt-[1px]"><Linkedin size={14}/></div> 
+                    <span className="break-all leading-tight">{cv.personal.linkedin}</span>
                   </li>
                 </ul>
               </div>
@@ -266,8 +272,8 @@ export default function CVBuilder() {
                 <h3 className="font-bold uppercase tracking-wider mb-3 pb-2 text-xs" style={{ borderBottom: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.9)' }}>Skills</h3>
                 <div className="flex flex-wrap gap-2">
                   {cv.skills.map((s, i) => (
-                    // CENTRADO: flex center + leading-none + padding exacto
-                    <span key={i} className={`px-2 py-1.5 rounded text-[10px] flex items-center justify-center leading-none ${debugClass}`} style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}>
+                    // Ajuste de alineación estándar para debug: py-1 px-2 leading-none
+                    <span key={i} className={`px-2 py-1 rounded text-[10px] leading-none ${debugClass}`} style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}>
                       {s}
                     </span>
                   ))}
@@ -329,13 +335,13 @@ export default function CVBuilder() {
                 {cv.experience.map((exp) => (
                   <div key={exp.id} className={`relative pl-4 ${debugClass}`} style={{ borderLeft: `2px solid ${cv.themeColor}40` }}>
                     
-                    {/* Punto del Timeline - Posición absoluta estricta */}
-                    <div className="absolute top-[6px] w-2 h-2 rounded-full" style={{ backgroundColor: cv.themeColor, left: '-5px' }}></div>
+                    {/* Punto del Timeline */}
+                    <div className="absolute top-[5px] w-2 h-2 rounded-full" style={{ backgroundColor: cv.themeColor, left: '-5px' }}></div>
                     
                     <div className="flex justify-between items-center mb-1">
                       <h4 className="font-bold text-sm leading-none" style={{ color: '#1e293b' }}>{exp.role}</h4>
                       {/* Fecha Badge */}
-                      <span className="text-[10px] font-bold px-2 py-1 rounded flex items-center justify-center leading-none whitespace-nowrap" style={{ backgroundColor: '#f3f4f6', color: '#64748b' }}>
+                      <span className="text-[10px] font-bold px-2 py-1 rounded leading-none whitespace-nowrap" style={{ backgroundColor: '#f3f4f6', color: '#64748b' }}>
                         {exp.date}
                       </span>
                     </div>
