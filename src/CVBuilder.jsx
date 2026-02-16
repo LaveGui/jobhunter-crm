@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { Link } from "react-router-dom";
-import { Mail, Phone, MapPin, Linkedin, Trash2, PlusCircle, Download, ArrowLeft, LayoutTemplate, Globe } from 'lucide-react';
+import { Mail, Phone, MapPin, Linkedin, Trash2, PlusCircle, Printer, ArrowLeft, LayoutTemplate, Globe } from 'lucide-react';
 
 export default function CVBuilder() {
   // --- ESTADO INICIAL ---
