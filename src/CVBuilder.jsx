@@ -1,7 +1,6 @@
 import { useState, useRef } from 'react';
 import { Link } from "react-router-dom";
-import html2pdf from 'html2pdf.js';
-import { Mail, Phone, MapPin, Linkedin, Trash2, PlusCircle, Printer, ArrowLeft, LayoutTemplate, Globe, Download, ScanEye } from 'lucide-react';
+import { Mail, Phone, MapPin, Linkedin, Trash2, PlusCircle, Printer, ArrowLeft, LayoutTemplate, Globe } from 'lucide-react';
 
 export default function CVBuilder() {
   // --- ESTADO INICIAL ---
@@ -32,10 +31,6 @@ export default function CVBuilder() {
     skills: ["HubSpot", "Braze", "Salesforce", "Zapier"]
   });
 
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [debugMode, setDebugMode] = useState(false);
-  const componentRef = useRef();
-
   // --- CONTROLADORES ---
   const handlePersonalChange = (e) => setCv({ ...cv, personal: { ...cv.personal, [e.target.name]: e.target.value } });
   const handleSkillsChange = (e) => setCv({ ...cv, skills: e.target.value.split(',').map(s => s.trim()) });
@@ -46,89 +41,55 @@ export default function CVBuilder() {
     setCv({ ...cv, [section]: updated });
   };
 
-  // --- GENERADOR PDF ---
-  const handleDownloadPDF = async () => {
-    setIsDownloading(true);
-    const element = componentRef.current;
-
-    try {
-        const elementHeightPx = element.scrollHeight;
-        const pdfHeightMm = (elementHeightPx * 0.264583) + 2;
-
-        const opt = {
-          margin: 0,
-          filename: `CV_${cv.personal.name.replace(/\s+/g, '_')}.pdf`,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { 
-            scale: 2, 
-            useCORS: true, 
-            scrollY: 0,
-            backgroundColor: '#ffffff',
-            letterRendering: true
-          },
-          jsPDF: { 
-            unit: 'mm', 
-            format: [210, pdfHeightMm], 
-            orientation: 'portrait' 
-          }
-        };
-
-        await html2pdf().set(opt).from(element).save();
-        setIsDownloading(false);
-
-    } catch (err) {
-        console.error("PDF Error:", err);
-        setIsDownloading(false);
-        alert(`❌ Error: ${err.message}`);
-    }
+  // --- IMPRESIÓN NATIVA ---
+  const handlePrint = () => {
+    window.print();
   };
-
-  // --- CLASES PARA DEBUGGING (MODO SEGURO) ---
-  const debugClass = debugMode ? "debug-box" : "";
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row font-sans">
       
-      {/* ESTILOS CSS MANUALES 
-          IMPORTANTE: Usamos 'outline' rojo sólido. 
-          NADA de transparencias (rgba) para evitar el error 'oklab'.
-      */}
+      {/* --- CSS PARA IMPRESIÓN --- */}
       <style>{`
-        .debug-box {
-          outline: 1px solid #ff0000 !important;
+        @media print {
+          @page { margin: 0; size: A4; }
+          body { -webkit-print-color-adjust: exact; background: white; }
+          /* Ocultar interfaz */
+          aside, .print-hidden-button, .page-break-marker { display: none !important; }
+          /* Resetear layout para impresión */
+          main { 
+            width: 100% !important; 
+            margin: 0 !important; 
+            padding: 0 !important; 
+            overflow: visible !important;
+            height: auto !important;
+          }
+          /* El contenedor del CV ocupa toda la hoja */
+          .cv-container {
+            width: 210mm !important;
+            min-height: 297mm !important;
+            box-shadow: none !important;
+            margin: 0 !important;
+            print-color-adjust: exact;
+          }
         }
       `}</style>
 
       {/* ================= EDITOR (IZQUIERDA) ================= */}
       <aside className="w-full md:w-[450px] bg-white h-screen overflow-y-auto border-r border-gray-200 shadow-xl z-10 print:hidden flex flex-col">
-        {/* Header */}
         <div className="p-4 bg-slate-900 text-white flex justify-between items-center sticky top-0 z-20">
           <div className="flex items-center gap-2">
             <Link to="/" className="hover:bg-slate-700 p-2 rounded"><ArrowLeft size={20}/></Link>
             <h2 className="font-bold">CV Studio</h2>
           </div>
-          
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={() => setDebugMode(!debugMode)}
-              className={`text-[10px] px-2 py-1 rounded border flex items-center gap-1 transition-all
-                ${debugMode ? 'bg-red-500 text-white border-red-500' : 'bg-transparent text-gray-400 border-gray-600 hover:text-white'}`}
-            >
-              <ScanEye size={12}/> {debugMode ? 'Regla ON' : 'Regla OFF'}
-            </button>
-
-            <button 
-              onClick={handleDownloadPDF} 
-              disabled={isDownloading}
-              className={`px-3 py-1.5 rounded text-sm font-bold flex gap-2 shadow-lg transition-all 
-                ${isDownloading ? 'bg-gray-500 cursor-wait' : 'bg-blue-600 hover:bg-blue-700 cursor-pointer'}`}
-            >
-              {isDownloading ? '...' : <><Download size={16}/> PDF</>}
-            </button>
-          </div>
+          <button 
+            onClick={handlePrint} 
+            className="print-hidden-button bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded text-sm font-bold flex gap-2 shadow-lg transition-all cursor-pointer"
+          >
+            <Printer size={16}/> Imprimir / PDF
+          </button>
         </div>
 
-        {/* Formulario */}
         <div className="p-6 space-y-8 pb-20">
           <section className="grid grid-cols-2 gap-4">
              <div>
@@ -216,144 +177,139 @@ export default function CVBuilder() {
       </aside>
 
       {/* ================= PREVIEW (DERECHA) ================= */}
-      <main className="flex-1 bg-gray-500 overflow-y-auto p-4 md:p-8 flex justify-center">
+      <main className="flex-1 bg-gray-500 overflow-y-auto p-4 md:p-8 flex justify-center print:p-0 print:bg-white">
         
-        {/* HOJA DE CV */}
-        <div 
-          ref={componentRef}
-          className={`shadow-2xl w-[210mm] flex items-stretch min-h-[297mm] ${debugClass}`}
-          style={{ 
-            height: 'fit-content', 
-            background: `linear-gradient(90deg, ${cv.themeColor} 0%, ${cv.themeColor} 32%, #ffffff 32%, #ffffff 100%)`,
-            color: '#000000' 
-          }} 
-        >
-          
-          {/* COLUMNA IZQUIERDA */}
+        <div className="relative">
+          {/* GUÍA VISUAL DE CORTE DE PÁGINA (SOLO visible en pantalla, NO sale en impresión) */}
+          <div className="page-break-marker absolute left-0 w-full border-b-2 border-dashed border-red-400 z-50 flex items-end justify-end pointer-events-none opacity-50" 
+               style={{ top: '297mm', width: '210mm' }}>
+            <span className="bg-red-400 text-white text-[10px] px-2 py-0.5 rounded-t font-bold">FIN DE PÁGINA A4</span>
+          </div>
+
+          {/* HOJA DE CV */}
           <div 
-            className={`w-[32%] p-6 pt-10 flex flex-col shrink-0 ${debugClass}`}
-            style={{ color: '#ffffff' }}
+            className="cv-container bg-white shadow-2xl w-[210mm] min-h-[297mm] flex items-stretch overflow-hidden"
+            style={{ 
+              background: `linear-gradient(90deg, ${cv.themeColor} 0%, ${cv.themeColor} 32%, #ffffff 32%, #ffffff 100%)`
+            }} 
           >
-            {/* Foto */}
-            <div className={`w-28 h-28 rounded-full mx-auto mb-6 overflow-hidden flex items-center justify-center shrink-0 ${debugClass}`} style={{ backgroundColor: 'rgba(255,255,255,0.2)', border: '4px solid rgba(255,255,255,0.3)' }}>
-               {cv.personal.photoUrl ? (
-                 <img src={cv.personal.photoUrl} alt="Profile" className="w-full h-full object-cover" crossOrigin="anonymous" />
-               ) : (
-                 <span className="text-4xl font-bold" style={{ color: '#ffffff' }}>{cv.personal.name.charAt(0)}</span>
-               )}
-            </div>
-
-            <div className="space-y-8 text-sm flex-1">
-              
-              {/* CONTACTO */}
-              <div className={debugClass}>
-                <h3 className="font-bold uppercase tracking-wider mb-3 pb-2 text-xs" style={{ borderBottom: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.9)' }}>Contacto</h3>
-                <ul className="space-y-3 text-xs" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                  <li className={`flex items-start gap-3 ${debugClass}`}>
-                    <div className="shrink-0 w-4 h-4 flex items-center justify-center mt-[1px]"><Phone size={14}/></div> 
-                    <span className="leading-tight">{cv.personal.phone}</span>
-                  </li>
-                  <li className={`flex items-start gap-3 ${debugClass}`}>
-                    <div className="shrink-0 w-4 h-4 flex items-center justify-center mt-[1px]"><Mail size={14}/></div> 
-                    <span className="break-all leading-tight">{cv.personal.email}</span>
-                  </li>
-                  <li className={`flex items-start gap-3 ${debugClass}`}>
-                    <div className="shrink-0 w-4 h-4 flex items-center justify-center mt-[1px]"><MapPin size={14}/></div> 
-                    <span className="leading-tight">{cv.personal.location}</span>
-                  </li>
-                  <li className={`flex items-start gap-3 ${debugClass}`}>
-                    <div className="shrink-0 w-4 h-4 flex items-center justify-center mt-[1px]"><Linkedin size={14}/></div> 
-                    <span className="break-all leading-tight">{cv.personal.linkedin}</span>
-                  </li>
-                </ul>
+            
+            {/* COLUMNA IZQUIERDA */}
+            <div className="w-[32%] p-6 pt-10 flex flex-col shrink-0 text-white">
+              {/* Foto */}
+              <div className="w-28 h-28 rounded-full mx-auto mb-6 overflow-hidden flex items-center justify-center shrink-0 border-4 border-white/30 bg-white/20">
+                 {cv.personal.photoUrl ? (
+                   <img src={cv.personal.photoUrl} alt="Profile" className="w-full h-full object-cover" crossOrigin="anonymous" />
+                 ) : (
+                   <span className="text-4xl font-bold">{cv.personal.name.charAt(0)}</span>
+                 )}
               </div>
-              
-              {/* SKILLS */}
-              <div className={debugClass}>
-                <h3 className="font-bold uppercase tracking-wider mb-3 pb-2 text-xs" style={{ borderBottom: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.9)' }}>Skills</h3>
-                <div className="flex flex-wrap gap-2">
-                  {cv.skills.map((s, i) => (
-                    <span key={i} className={`px-2 py-1 rounded text-[10px] leading-none ${debugClass}`} style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}>
-                      {s}
-                    </span>
-                  ))}
+
+              <div className="space-y-8 text-sm flex-1">
+                {/* CONTACTO */}
+                <div>
+                  <h3 className="font-bold uppercase tracking-wider mb-3 pb-2 text-xs border-b border-white/30 text-white/90">Contacto</h3>
+                  <ul className="space-y-3 text-xs text-white/90">
+                    <li className="flex items-center gap-3">
+                      <div className="shrink-0"><Phone size={14}/></div> 
+                      <span>{cv.personal.phone}</span>
+                    </li>
+                    <li className="flex items-center gap-3">
+                      <div className="shrink-0"><Mail size={14}/></div> 
+                      <span className="break-all">{cv.personal.email}</span>
+                    </li>
+                    <li className="flex items-center gap-3">
+                      <div className="shrink-0"><MapPin size={14}/></div> 
+                      <span>{cv.personal.location}</span>
+                    </li>
+                    <li className="flex items-center gap-3">
+                      <div className="shrink-0"><Linkedin size={14}/></div> 
+                      <span className="break-all">{cv.personal.linkedin}</span>
+                    </li>
+                  </ul>
                 </div>
-              </div>
-
-              {/* EDUCACIÓN */}
-              <div className={debugClass}>
-                <h3 className="font-bold uppercase tracking-wider mb-3 pb-2 text-xs" style={{ borderBottom: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.9)' }}>Educación</h3>
-                {cv.education.map((edu) => (
-                   <div key={edu.id} className={`mb-4 ${debugClass}`} style={{ color: 'rgba(255,255,255,0.9)' }}>
-                     <p className="font-bold text-xs mb-0.5 leading-tight">{edu.degree}</p>
-                     <p className="text-[10px] leading-tight" style={{ opacity: 0.8 }}>{edu.school}</p>
-                     <p className="text-[10px] leading-tight" style={{ opacity: 0.8 }}>{edu.date}</p>
-                   </div>
-                ))}
-              </div>
-
-              {/* IDIOMAS */}
-              {cv.languages.length > 0 && (
-                <div className={debugClass}>
-                  <h3 className="font-bold uppercase tracking-wider mb-3 pb-2 text-xs" style={{ borderBottom: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.9)' }}>Idiomas</h3>
-                  {cv.languages.map((lang) => (
-                    <div key={lang.id} className={`mb-2 flex justify-between items-baseline text-xs ${debugClass}`} style={{ color: 'rgba(255,255,255,0.9)' }}>
-                      <span className="font-semibold">{lang.language}</span>
-                      <span className="text-[10px]" style={{ opacity: 0.8 }}>{lang.level}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* COLUMNA DERECHA */}
-          <div className={`w-[68%] p-8 pt-10 flex flex-col ${debugClass}`} style={{ backgroundColor: 'transparent', color: '#1e293b' }}>
-            {/* Header */}
-            <header className={`mb-8 pb-4 shrink-0 ${debugClass}`} style={{ borderBottom: `2px solid ${cv.themeColor}` }}>
-              <h1 className="text-4xl font-extrabold uppercase tracking-tight leading-none mb-2" style={{ color: '#1e293b' }}>{cv.personal.name}</h1>
-              <h2 className="text-lg font-bold tracking-wide leading-none" style={{ color: cv.themeColor }}>{cv.personal.title}</h2>
-            </header>
-
-            {/* Perfil */}
-            <section className={`mb-8 shrink-0 ${debugClass}`}>
-              <h3 className="text-xs font-bold uppercase tracking-wider mb-3 flex items-center gap-2" style={{ color: '#334155' }}>
-                <span className="p-1 rounded flex items-center justify-center w-5 h-5" style={{ backgroundColor: cv.themeColor, color: '#ffffff' }}><LayoutTemplate size={12}/></span> 
-                <span className="leading-none mt-[1px]">Perfil</span>
-              </h3>
-              <p className="text-xs leading-relaxed text-justify" style={{ color: '#475569' }}>{cv.personal.summary}</p>
-            </section>
-
-            {/* Experiencia */}
-            <section className="flex-1">
-              <h3 className="text-xs font-bold uppercase tracking-wider mb-5 flex items-center gap-2" style={{ color: '#334155' }}>
-                <span className="p-1 rounded flex items-center justify-center w-5 h-5" style={{ backgroundColor: cv.themeColor, color: '#ffffff' }}><LayoutTemplate size={12}/></span> 
-                <span className="leading-none mt-[1px]">Experiencia</span>
-              </h3>
-              
-              <div className="space-y-6">
-                {cv.experience.map((exp) => (
-                  <div key={exp.id} className={`relative pl-4 ${debugClass}`} style={{ borderLeft: `2px solid ${cv.themeColor}40` }}>
-                    
-                    {/* Punto del Timeline */}
-                    <div className="absolute top-[5px] w-2 h-2 rounded-full" style={{ backgroundColor: cv.themeColor, left: '-5px' }}></div>
-                    
-                    <div className="flex justify-between items-center mb-1">
-                      <h4 className="font-bold text-sm leading-none" style={{ color: '#1e293b' }}>{exp.role}</h4>
-                      {/* Fecha Badge */}
-                      <span className="text-[10px] font-bold px-2 py-1 rounded leading-none whitespace-nowrap" style={{ backgroundColor: '#f3f4f6', color: '#64748b' }}>
-                        {exp.date}
+                
+                {/* SKILLS */}
+                <div>
+                  <h3 className="font-bold uppercase tracking-wider mb-3 pb-2 text-xs border-b border-white/30 text-white/90">Skills</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {cv.skills.map((s, i) => (
+                      <span key={i} className="px-2 py-1 rounded text-[10px] bg-white/20 text-white flex items-center justify-center">
+                        {s}
                       </span>
-                    </div>
-                    
-                    <p className="text-xs font-bold mb-2 leading-tight" style={{ color: cv.themeColor }}>{exp.company}</p>
-                    <p className="text-xs leading-relaxed whitespace-pre-line" style={{ color: '#475569' }}>{exp.description}</p>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </section>
-          </div>
+                </div>
 
+                {/* EDUCACIÓN */}
+                <div>
+                  <h3 className="font-bold uppercase tracking-wider mb-3 pb-2 text-xs border-b border-white/30 text-white/90">Educación</h3>
+                  {cv.education.map((edu) => (
+                     <div key={edu.id} className="mb-4 text-white/90">
+                       <p className="font-bold text-xs mb-0.5">{edu.degree}</p>
+                       <p className="text-[10px] opacity-80">{edu.school}</p>
+                       <p className="text-[10px] opacity-80">{edu.date}</p>
+                     </div>
+                  ))}
+                </div>
+
+                {/* IDIOMAS */}
+                {cv.languages.length > 0 && (
+                  <div>
+                    <h3 className="font-bold uppercase tracking-wider mb-3 pb-2 text-xs border-b border-white/30 text-white/90">Idiomas</h3>
+                    {cv.languages.map((lang) => (
+                      <div key={lang.id} className="mb-2 flex justify-between items-baseline text-xs text-white/90">
+                        <span className="font-semibold">{lang.language}</span>
+                        <span className="text-[10px] opacity-80">{lang.level}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* COLUMNA DERECHA */}
+            <div className="w-[68%] p-8 pt-10 flex flex-col text-slate-800">
+              <header className="mb-8 pb-4 shrink-0 border-b-2" style={{ borderColor: cv.themeColor }}>
+                <h1 className="text-4xl font-extrabold uppercase tracking-tight leading-none mb-2 text-slate-900">{cv.personal.name}</h1>
+                <h2 className="text-lg font-bold tracking-wide" style={{ color: cv.themeColor }}>{cv.personal.title}</h2>
+              </header>
+
+              <section className="mb-8 shrink-0">
+                <h3 className="text-xs font-bold uppercase tracking-wider mb-3 flex items-center gap-2 text-slate-600">
+                  <span className="p-1 rounded flex items-center justify-center w-5 h-5 text-white" style={{ backgroundColor: cv.themeColor }}><LayoutTemplate size={12}/></span> 
+                  <span className="mt-[1px]">Perfil</span>
+                </h3>
+                <p className="text-xs leading-relaxed text-justify text-slate-600">{cv.personal.summary}</p>
+              </section>
+
+              <section className="flex-1">
+                <h3 className="text-xs font-bold uppercase tracking-wider mb-5 flex items-center gap-2 text-slate-600">
+                  <span className="p-1 rounded flex items-center justify-center w-5 h-5 text-white" style={{ backgroundColor: cv.themeColor }}><LayoutTemplate size={12}/></span> 
+                  <span className="mt-[1px]">Experiencia</span>
+                </h3>
+                
+                <div className="space-y-6">
+                  {cv.experience.map((exp) => (
+                    <div key={exp.id} className="relative pl-4 border-l-2" style={{ borderColor: cv.themeColor + '40' }}>
+                      <div className="absolute top-[5px] w-2 h-2 rounded-full -left-[5px]" style={{ backgroundColor: cv.themeColor }}></div>
+                      
+                      <div className="flex justify-between items-center mb-1">
+                        <h4 className="font-bold text-sm text-slate-900">{exp.role}</h4>
+                        <span className="text-[10px] font-bold px-2 py-1 rounded bg-slate-100 text-slate-500 whitespace-nowrap">
+                          {exp.date}
+                        </span>
+                      </div>
+                      
+                      <p className="text-xs font-bold mb-2" style={{ color: cv.themeColor }}>{exp.company}</p>
+                      <p className="text-xs leading-relaxed whitespace-pre-line text-slate-600">{exp.description}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </div>
+
+          </div>
         </div>
       </main>
     </div>
