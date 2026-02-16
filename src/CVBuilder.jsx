@@ -1,49 +1,46 @@
 import { useState, useRef } from 'react';
 import { Link } from "react-router-dom";
 import { useReactToPrint } from 'react-to-print';
-import { Mail, Phone, MapPin, Linkedin, Trash2, PlusCircle, Printer, ArrowLeft, LayoutTemplate, GraduationCap } from 'lucide-react';
+import { Mail, Phone, MapPin, Linkedin, Trash2, PlusCircle, Printer, ArrowLeft, LayoutTemplate, Globe } from 'lucide-react';
 
 export default function CVBuilder() {
   // --- ESTADO INICIAL ---
   const [cv, setCv] = useState({
     themeColor: '#2563eb',
     personal: {
-      name: "TU NOMBRE",
+      name: "Guido Lavesari",
       title: "Tu Cargo Objetivo",
-      email: "email@ejemplo.com",
-      phone: "+34 600 000 000",
-      location: "Madrid, España",
-      linkedin: "linkedin.com/in/tu-perfil",
-      photoUrl: "https://media.licdn.com/dms/image/v2/D4D03AQHeo6jBDnImhg/profile-displayphoto-shrink_200_200/profile-displayphoto-shrink_200_200/0/1719770203810?e=1772668800&v=beta&t=bpce329V0MDDEgr3KpEUot8XPT4bDR11HJc4E4KNVgY", // URL de la foto
-      summary: "Resumen profesional..."
+      email: "guido@lavesari.com.ar",
+      phone: "+34 666 110 145",
+      location: "Valencia, España",
+      linkedin: "/in/guidolavesari",
+      photoUrl: "https://media.licdn.com/dms/image/v2/D4D03AQHeo6jBDnImhg/profile-displayphoto-shrink_200_200/profile-displayphoto-shrink_200_200/0/1719770203810?e=1772668800&v=beta&t=bpce329V0MDDEgr3KpEUot8XPT4bDR11HJc4E4KNVgY", 
+      summary: "Resumen profesional enfocado en resultados..."
     },
     experience: [
-      { id: 1, role: "Cargo", company: "Empresa", date: "2021 - Presente", description: "Descripción de logros..." }
+      { id: 1, role: "Cargo Actual", company: "Empresa", date: "2021 - Presente", description: "• Logro principal\n• Gestión de equipos..." }
     ],
     education: [
-      { id: 1, degree: "Grado / Máster", school: "Universidad / Institución", date: "2018" }
+      { id: 1, degree: "Master IA e Innovación", school: "Founderz", date: "2024" },
+      { id: 2, degree: "Postgrado Marketing Digital", school: "Digital House", date: "2016" },
+      { id: 3, degree: "Lic. en Marketing", school: "UADE (Arg)", date: "2015" }
+    ],
+    languages: [
+      { id: 1, language: "Español", level: "Nativo" },
+      { id: 2, language: "Inglés", level: "C1 - Avanzado" }
     ],
     skills: ["Habilidad 1", "Habilidad 2"]
   });
 
-  // --- CONTROLADORES ---
-  const handlePersonalChange = (e) => {
-    setCv({ ...cv, personal: { ...cv.personal, [e.target.name]: e.target.value } });
-  };
+  // --- CONTROLADORES GENÉRICOS ---
+  const handlePersonalChange = (e) => setCv({ ...cv, personal: { ...cv.personal, [e.target.name]: e.target.value } });
+  
+  const handleSkillsChange = (e) => setCv({ ...cv, skills: e.target.value.split(',').map(s => s.trim()) });
 
-  const handleSkillsChange = (e) => {
-    setCv({ ...cv, skills: e.target.value.split(',').map(s => s.trim()) });
-  };
-
-  // Generic Handlers for Arrays (Experience & Education)
-  const addItem = (section, template) => {
-    setCv({ ...cv, [section]: [...cv[section], { ...template, id: Date.now() }] });
-  };
-
-  const removeItem = (section, id) => {
-    setCv({ ...cv, [section]: cv[section].filter(i => i.id !== id) });
-  };
-
+  const addItem = (section, template) => setCv({ ...cv, [section]: [...cv[section], { ...template, id: Date.now() }] });
+  
+  const removeItem = (section, id) => setCv({ ...cv, [section]: cv[section].filter(i => i.id !== id) });
+  
   const updateItem = (section, id, field, value) => {
     const updated = cv[section].map(i => i.id === id ? { ...i, [field]: value } : i);
     setCv({ ...cv, [section]: updated });
@@ -51,22 +48,41 @@ export default function CVBuilder() {
 
   // --- IMPRESIÓN ---
   const componentRef = useRef();
+  
   const handlePrint = useReactToPrint({
     contentRef: componentRef,
     documentTitle: `CV_${cv.personal.name}`,
+    // Esto asegura que se impriman los colores de fondo
+    print: async (printIframe) => {
+        const document = printIframe.contentDocument;
+        if (document) {
+          const style = document.createElement('style');
+          // TRUCO CSS: Forzar tamaño dinámico y márgenes cero
+          style.textContent = `
+            @page { size: auto; margin: 0mm; } 
+            @media print { 
+              body { -webkit-print-color-adjust: exact; }
+              html, body { height: auto; }
+            }
+          `;
+          document.head.appendChild(style);
+        }
+    }
   });
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row font-sans">
       
-      {/* ----------------- EDITOR (IZQUIERDA) ----------------- */}
-      <aside className="w-full md:w-[420px] bg-white h-screen overflow-y-auto border-r border-gray-200 shadow-xl z-10 print:hidden flex flex-col">
+      {/* ================= EDITOR (IZQUIERDA) ================= */}
+      <aside className="w-full md:w-[450px] bg-white h-screen overflow-y-auto border-r border-gray-200 shadow-xl z-10 print:hidden flex flex-col">
         <div className="p-4 bg-slate-900 text-white flex justify-between items-center sticky top-0 z-20">
           <div className="flex items-center gap-2">
             <Link to="/" className="hover:bg-slate-700 p-2 rounded"><ArrowLeft size={20}/></Link>
             <h2 className="font-bold">CV Studio</h2>
           </div>
-          <button onClick={handlePrint} className="bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded text-sm font-bold flex gap-2"><Printer size={16}/> PDF</button>
+          <button onClick={handlePrint} className="bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded text-sm font-bold flex gap-2 shadow-lg hover:shadow-blue-500/50 transition-all">
+            <Printer size={16}/> Descargar PDF
+          </button>
         </div>
 
         <div className="p-6 space-y-8 pb-20">
@@ -77,7 +93,7 @@ export default function CVBuilder() {
                <input type="color" value={cv.themeColor} onChange={(e) => setCv({...cv, themeColor: e.target.value})} className="w-full h-10 rounded cursor-pointer border-0"/>
              </div>
              <div>
-               <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Foto (URL)</label>
+               <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Foto URL</label>
                <input name="photoUrl" placeholder="https://..." value={cv.personal.photoUrl} onChange={handlePersonalChange} className="w-full border p-2 rounded text-xs"/>
              </div>
           </section>
@@ -98,28 +114,28 @@ export default function CVBuilder() {
 
           {/* EXPERIENCIA */}
           <section className="space-y-4 border-t pt-4">
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <h3 className="text-xs font-bold text-gray-400 uppercase">💼 Experiencia</h3>
-              <button onClick={() => addItem('experience', { role: '', company: '', date: '', description: '' })} className="text-blue-600 text-xs font-bold flex gap-1"><PlusCircle size={14}/> Añadir</button>
+              <button onClick={() => addItem('experience', { role: '', company: '', date: '', description: '' })} className="text-blue-600 text-xs font-bold flex gap-1 items-center hover:bg-blue-50 px-2 py-1 rounded"><PlusCircle size={14}/> Añadir</button>
             </div>
             {cv.experience.map((exp) => (
-              <div key={exp.id} className="bg-gray-50 p-3 rounded border relative group">
-                <button onClick={() => removeItem('experience', exp.id)} className="absolute top-2 right-2 text-red-400 opacity-0 group-hover:opacity-100"><Trash2 size={16}/></button>
+              <div key={exp.id} className="bg-gray-50 p-3 rounded border relative group hover:border-blue-300 transition-colors">
+                <button onClick={() => removeItem('experience', exp.id)} className="absolute top-2 right-2 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={16}/></button>
                 <input placeholder="Cargo" value={exp.role} onChange={(e) => updateItem('experience', exp.id, 'role', e.target.value)} className="w-full bg-white border p-1 rounded text-sm font-bold mb-1" />
                 <div className="grid grid-cols-2 gap-2 mb-1">
                     <input placeholder="Empresa" value={exp.company} onChange={(e) => updateItem('experience', exp.id, 'company', e.target.value)} className="bg-white border p-1 rounded text-xs" />
                     <input placeholder="Fechas" value={exp.date} onChange={(e) => updateItem('experience', exp.id, 'date', e.target.value)} className="bg-white border p-1 rounded text-xs text-right" />
                 </div>
-                <textarea placeholder="Logros..." value={exp.description} onChange={(e) => updateItem('experience', exp.id, 'description', e.target.value)} className="w-full bg-white border p-1 rounded text-xs h-16" />
+                <textarea placeholder="Logros..." value={exp.description} onChange={(e) => updateItem('experience', exp.id, 'description', e.target.value)} className="w-full bg-white border p-1 rounded text-xs h-20 resize-y" />
               </div>
             ))}
           </section>
 
-          {/* EDUCACIÓN (NUEVO) */}
+          {/* EDUCACIÓN */}
           <section className="space-y-4 border-t pt-4">
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <h3 className="text-xs font-bold text-gray-400 uppercase">🎓 Educación</h3>
-              <button onClick={() => addItem('education', { degree: '', school: '', date: '' })} className="text-blue-600 text-xs font-bold flex gap-1"><PlusCircle size={14}/> Añadir</button>
+              <button onClick={() => addItem('education', { degree: '', school: '', date: '' })} className="text-blue-600 text-xs font-bold flex gap-1 items-center hover:bg-blue-50 px-2 py-1 rounded"><PlusCircle size={14}/> Añadir</button>
             </div>
             {cv.education.map((edu) => (
               <div key={edu.id} className="bg-gray-50 p-3 rounded border relative group">
@@ -133,6 +149,21 @@ export default function CVBuilder() {
             ))}
           </section>
 
+          {/* IDIOMAS (NUEVO) */}
+          <section className="space-y-4 border-t pt-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-xs font-bold text-gray-400 uppercase">🌍 Idiomas</h3>
+              <button onClick={() => addItem('languages', { language: '', level: '' })} className="text-blue-600 text-xs font-bold flex gap-1 items-center hover:bg-blue-50 px-2 py-1 rounded"><PlusCircle size={14}/> Añadir</button>
+            </div>
+            {cv.languages.map((lang) => (
+              <div key={lang.id} className="bg-gray-50 p-2 rounded border relative group grid grid-cols-2 gap-2">
+                <button onClick={() => removeItem('languages', lang.id)} className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-400 opacity-0 group-hover:opacity-100 shadow border"><Trash2 size={12}/></button>
+                <input placeholder="Idioma (Inglés)" value={lang.language} onChange={(e) => updateItem('languages', lang.id, 'language', e.target.value)} className="bg-white border p-1 rounded text-xs font-bold" />
+                <input placeholder="Nivel (C1)" value={lang.level} onChange={(e) => updateItem('languages', lang.id, 'level', e.target.value)} className="bg-white border p-1 rounded text-xs" />
+              </div>
+            ))}
+          </section>
+
            {/* SKILLS */}
            <section className="space-y-2 border-t pt-4">
             <h3 className="text-xs font-bold text-gray-400 uppercase">⚡ Skills (separar con comas)</h3>
@@ -141,15 +172,18 @@ export default function CVBuilder() {
         </div>
       </aside>
 
-      {/* ----------------- PREVIEW A4 (DERECHA) ----------------- */}
-      <main className="flex-1 bg-gray-500 overflow-y-auto p-4 md:p-8 flex justify-center print:p-0 print:bg-white">
-        <div ref={componentRef} className="bg-white shadow-2xl w-[210mm] min-h-[297mm] flex print:w-full print:shadow-none">
+      {/* ================= PREVIEW (DERECHA) ================= */}
+      <main className="flex-1 bg-gray-500 overflow-y-auto p-4 md:p-8 flex justify-center print:p-0 print:bg-white print:m-0">
+        
+        {/* CONTENEDOR DE LA HOJA (Flex para que las columnas se estiren igual) */}
+        <div ref={componentRef} className="bg-white shadow-2xl w-[210mm] flex items-stretch print:w-full print:shadow-none min-h-[297mm]">
           
-          {/* SIDEBAR IZQUIERDA (Color) */}
-          <div style={{ backgroundColor: cv.themeColor }} className="w-[32%] text-white p-8 pt-12">
+          {/* COLUMNA IZQUIERDA (Color Personalizado) */}
+          {/* 'flex-col' para distribuir contenido verticalmente */}
+          <div style={{ backgroundColor: cv.themeColor }} className="w-[32%] text-white p-6 pt-10 flex flex-col shrink-0">
             
-            {/* FOTO (Si hay URL, se muestra. Si no, inicial) */}
-            <div className="w-28 h-28 bg-white/20 rounded-full mx-auto mb-6 overflow-hidden border-4 border-white/30 flex items-center justify-center">
+            {/* FOTO */}
+            <div className="w-28 h-28 bg-white/20 rounded-full mx-auto mb-6 overflow-hidden border-4 border-white/30 flex items-center justify-center shrink-0">
                {cv.personal.photoUrl ? (
                  <img src={cv.personal.photoUrl} alt="Profile" className="w-full h-full object-cover" />
                ) : (
@@ -157,9 +191,10 @@ export default function CVBuilder() {
                )}
             </div>
 
-            <div className="space-y-6 text-sm">
+            <div className="space-y-6 text-sm flex-1">
+              {/* CONTACTO */}
               <div>
-                <h3 className="font-bold uppercase tracking-wider mb-2 border-b border-white/30 pb-1 text-white/90">Contacto</h3>
+                <h3 className="font-bold uppercase tracking-wider mb-2 border-b border-white/30 pb-1 text-white/90 text-xs">Contacto</h3>
                 <ul className="space-y-2 text-white/80 text-xs">
                   <li className="flex items-center gap-2"><Phone size={12}/> {cv.personal.phone}</li>
                   <li className="flex items-center gap-2"><Mail size={12}/> <span className="break-all">{cv.personal.email}</span></li>
@@ -168,15 +203,17 @@ export default function CVBuilder() {
                 </ul>
               </div>
 
+              {/* SKILLS */}
               <div>
-                <h3 className="font-bold uppercase tracking-wider mb-2 border-b border-white/30 pb-1 text-white/90">Skills</h3>
+                <h3 className="font-bold uppercase tracking-wider mb-2 border-b border-white/30 pb-1 text-white/90 text-xs">Skills</h3>
                 <div className="flex flex-wrap gap-1">
                   {cv.skills.map((s, i) => <span key={i} className="bg-white/10 px-2 py-0.5 rounded text-[10px]">{s}</span>)}
                 </div>
               </div>
 
+              {/* EDUCACIÓN */}
               <div>
-                <h3 className="font-bold uppercase tracking-wider mb-2 border-b border-white/30 pb-1 text-white/90">Educación</h3>
+                <h3 className="font-bold uppercase tracking-wider mb-2 border-b border-white/30 pb-1 text-white/90 text-xs">Educación</h3>
                 {cv.education.map((edu) => (
                    <div key={edu.id} className="mb-3 text-white/80">
                      <p className="font-bold text-xs">{edu.degree}</p>
@@ -185,24 +222,37 @@ export default function CVBuilder() {
                    </div>
                 ))}
               </div>
+
+              {/* IDIOMAS (NUEVO) */}
+              {cv.languages.length > 0 && (
+                <div>
+                  <h3 className="font-bold uppercase tracking-wider mb-2 border-b border-white/30 pb-1 text-white/90 text-xs">Idiomas</h3>
+                  {cv.languages.map((lang) => (
+                    <div key={lang.id} className="mb-2 flex justify-between items-baseline text-white/80 text-xs">
+                      <span className="font-semibold">{lang.language}</span>
+                      <span className="opacity-70 text-[10px]">{lang.level}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* CONTENIDO PRINCIPAL */}
-          <div className="w-[68%] p-8 pt-12 text-slate-800">
-            <header className="mb-6 border-b-2 pb-4" style={{ borderColor: cv.themeColor }}>
+          {/* COLUMNA DERECHA (Contenido Principal) */}
+          <div className="w-[68%] p-8 pt-10 text-slate-800 bg-white flex flex-col">
+            <header className="mb-6 border-b-2 pb-4 shrink-0" style={{ borderColor: cv.themeColor }}>
               <h1 className="text-3xl font-extrabold uppercase tracking-tight leading-none mb-1">{cv.personal.name}</h1>
               <h2 className="text-lg font-medium" style={{ color: cv.themeColor }}>{cv.personal.title}</h2>
             </header>
 
-            <section className="mb-6">
+            <section className="mb-6 shrink-0">
               <h3 className="text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
                 <span className="p-1 text-white rounded" style={{ backgroundColor: cv.themeColor }}><LayoutTemplate size={12}/></span> Perfil
               </h3>
               <p className="text-xs text-slate-600 leading-relaxed text-justify">{cv.personal.summary}</p>
             </section>
 
-            <section>
+            <section className="flex-1">
               <h3 className="text-xs font-bold uppercase tracking-wider mb-4 flex items-center gap-2">
                 <span className="p-1 text-white rounded" style={{ backgroundColor: cv.themeColor }}><LayoutTemplate size={12}/></span> Experiencia
               </h3>
