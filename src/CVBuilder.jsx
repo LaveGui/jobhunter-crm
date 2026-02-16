@@ -193,7 +193,7 @@ export default function CVBuilder() {
       {/* ================= PREVIEW (DERECHA) ================= */}
       <main className="flex-1 bg-gray-500 overflow-y-auto p-4 md:p-8 flex justify-center">
         
-        {/* HOJA DE CV */}
+        {/* HOJA DE CV BLINDADA */}
         <div 
           ref={componentRef}
           className="shadow-2xl w-[210mm] flex items-stretch min-h-[297mm]"
@@ -220,38 +220,36 @@ export default function CVBuilder() {
 
             <div className="space-y-8 text-sm flex-1">
               
-              {/* CONTACTO - Alineación Fix */}
+              {/* CONTACTO - AJUSTE: items-center + mt-[-3px] para levantar el texto */}
               <div>
                 <h3 className="font-bold uppercase tracking-wider mb-3 pb-2 text-xs" style={{ borderBottom: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.9)' }}>Contacto</h3>
                 <ul className="space-y-3 text-xs" style={{ color: 'rgba(255,255,255,0.9)' }}>
                   <li className="flex items-center gap-3">
                     <div className="shrink-0"><Phone size={14}/></div> 
-                    <span>{cv.personal.phone}</span>
+                    <span className="mt-[-3px]">{cv.personal.phone}</span>
                   </li>
                   <li className="flex items-center gap-3">
                     <div className="shrink-0"><Mail size={14}/></div> 
-                    <span className="break-all">{cv.personal.email}</span>
+                    <span className="break-all mt-[-3px]">{cv.personal.email}</span>
                   </li>
                   <li className="flex items-center gap-3">
                     <div className="shrink-0"><MapPin size={14}/></div> 
-                    <span>{cv.personal.location}</span>
+                    <span className="mt-[-3px]">{cv.personal.location}</span>
                   </li>
                   <li className="flex items-center gap-3">
                     <div className="shrink-0"><Linkedin size={14}/></div> 
-                    {/* Quitamos truncate para que no se corte, usamos break-all si es muy largo */}
-                    <span className="break-all">{cv.personal.linkedin}</span>
+                    <span className="break-all mt-[-3px]">{cv.personal.linkedin}</span>
                   </li>
                 </ul>
               </div>
               
-              {/* SKILLS - Alineación Centrada Fix */}
+              {/* SKILLS - AJUSTE: justify-center + mt-[-2px] */}
               <div>
                 <h3 className="font-bold uppercase tracking-wider mb-3 pb-2 text-xs" style={{ borderBottom: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.9)' }}>Skills</h3>
                 <div className="flex flex-wrap gap-2">
                   {cv.skills.map((s, i) => (
-                    // Flex y items-center para centrar texto en la caja
-                    <span key={i} className="px-2 py-1.5 rounded text-[10px] leading-normal flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}>
-                      {s}
+                    <span key={i} className="px-2 py-1.5 rounded text-[10px] leading-none flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}>
+                      <span className="mt-[-2px]">{s}</span>
                     </span>
                   ))}
                 </div>
@@ -294,33 +292,36 @@ export default function CVBuilder() {
 
             {/* Perfil */}
             <section className="mb-8 shrink-0">
-              {/* Alineación Icono Título: items-center para centrar verticalmente */}
+              {/* AJUSTE: Levantamos el texto del título PERFIL */}
               <h3 className="text-xs font-bold uppercase tracking-wider mb-3 flex items-center gap-2" style={{ color: '#334155' }}>
                 <span className="p-1 rounded flex items-center justify-center" style={{ backgroundColor: cv.themeColor, color: '#ffffff' }}><LayoutTemplate size={12}/></span> 
-                <span>Perfil</span>
+                <span className="mt-[-2px]">Perfil</span>
               </h3>
               <p className="text-xs leading-relaxed text-justify" style={{ color: '#475569' }}>{cv.personal.summary}</p>
             </section>
 
             {/* Experiencia */}
             <section className="flex-1">
+              {/* AJUSTE: Levantamos el texto del título EXPERIENCIA */}
               <h3 className="text-xs font-bold uppercase tracking-wider mb-5 flex items-center gap-2" style={{ color: '#334155' }}>
                 <span className="p-1 rounded flex items-center justify-center" style={{ backgroundColor: cv.themeColor, color: '#ffffff' }}><LayoutTemplate size={12}/></span> 
-                <span>Experiencia</span>
+                <span className="mt-[-2px]">Experiencia</span>
               </h3>
               
               <div className="space-y-6">
                 {cv.experience.map((exp) => (
                   <div key={exp.id} className="relative pl-4" style={{ borderLeft: `2px solid ${cv.themeColor}40` }}>
                     
-                    {/* Punto del Timeline - Ajuste fino de posición para alineación con línea de 2px */}
-                    <div className="absolute top-1.5 w-2 h-2 rounded-full" style={{ backgroundColor: cv.themeColor, left: '-5px' }}></div>
+                    {/* Punto del Timeline - Ajustado a top-1 para alinearse con texto levantado */}
+                    <div className="absolute top-1 w-2 h-2 rounded-full" style={{ backgroundColor: cv.themeColor, left: '-5px' }}></div>
                     
                     <div className="flex justify-between items-start mb-1">
-                      <h4 className="font-bold text-sm" style={{ color: '#1e293b' }}>{exp.role}</h4>
-                      {/* Fecha Badge - Centrado Vertical Fix */}
+                      {/* Título Cargo - mt-[-2px] para levantar */}
+                      <h4 className="font-bold text-sm mt-[-2px]" style={{ color: '#1e293b' }}>{exp.role}</h4>
+                      
+                      {/* Fecha Badge - Texto levantado internamente */}
                       <span className="text-[10px] font-bold px-2 py-1 rounded flex items-center justify-center whitespace-nowrap" style={{ backgroundColor: '#f3f4f6', color: '#64748b' }}>
-                        {exp.date}
+                        <span className="mt-[-2px]">{exp.date}</span>
                       </span>
                     </div>
                     
