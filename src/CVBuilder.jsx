@@ -44,50 +44,45 @@ export default function CVBuilder() {
     setCv({ ...cv, [section]: updated });
   };
 
- // --- LÓGICA DE DESCARGA PDF ---
-  const componentRef = useRef();
-
-  const handleDownloadPDF = () => {
-    const element = componentRef.current;
-    setIsDownloading(true);
-
-    const elementHeightPx = element.scrollHeight;
-    const pxToMm = 0.264583;
-    const pdfHeightMm = Math.max(elementHeightPx * pxToMm + 10, 297); // +10mm de margen extra por seguridad
-
-    const opt = {
-      margin: 0,
-      filename: `CV_${cv.personal.name.replace(/\s+/g, '_')}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { 
-        scale: 2, 
-         logging: true, // Para ver errores en consola si falla
-        scrollY: 0
-      },
-      jsPDF: { 
-        unit: 'mm', 
-        format: [210, pdfHeightMm], 
-        orientation: 'portrait' 
-      }
-    };
-
-    html2pdf()
-      .set(opt)
-      .from(element)
-      .save()
-      .then(() => {
-        setIsDownloading(false);
-      })
-      .catch((err) => {
-        console.error("Error al generar PDF:", err);
-        setIsDownloading(false);
-        alert("❌ Error: No se pudo generar el PDF. \n\nCausa probable: La foto de perfil externa está bloqueando la descarga por seguridad del navegador.\n\nPrueba borrando la URL de la foto temporalmente.");
-      });
+// --- IMPRESIÓN NATIVA MEJORADA ---
+  const handlePrint = () => {
+    window.print();
   };
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row font-sans">
       
+      {/* ESTILOS CRÍTICOS DE IMPRESIÓN 
+         Esto fuerza al navegador a ignorar el tamaño A4 y usar "lo que ocupe el contenido"
+      */}
+      <style>{`
+        @media print {
+          @page {
+            size: auto;   /* Importante: Tamaño automático */
+            margin: 0mm;  /* Sin márgenes blancos */
+          }
+          body {
+            background-color: white;
+            -webkit-print-color-adjust: exact;
+          }
+          /* Ocultar todo lo que no sea el CV */
+          aside, header, .no-print { display: none !important; }
+          
+          /* Forzar que el CV ocupe el 100% y se vea bien */
+          main { 
+            width: 100% !important; 
+            margin: 0 !important; 
+            padding: 0 !important;
+            overflow: visible !important;
+          }
+          #cv-document {
+            width: 100% !important;
+            min-height: 100vh !important;
+            box-shadow: none !important;
+          }
+        }
+      `}</style>
+
       {/* ================= EDITOR (IZQUIERDA) ================= */}
       <aside className="w-full md:w-[450px] bg-white h-screen overflow-y-auto border-r border-gray-200 shadow-xl z-10 print:hidden flex flex-col">
         <div className="p-4 bg-slate-900 text-white flex justify-between items-center sticky top-0 z-20">
@@ -96,17 +91,15 @@ export default function CVBuilder() {
             <h2 className="font-bold">CV Studio</h2>
           </div>
           <button 
-            onClick={handleDownloadPDF} 
-            disabled={isDownloading}
-            className={`px-3 py-1.5 rounded text-sm font-bold flex gap-2 shadow-lg transition-all 
-              ${isDownloading ? 'bg-gray-500 cursor-wait' : 'bg-blue-600 hover:bg-blue-700 hover:shadow-blue-500/50 cursor-pointer'}`}
+            onClick={handlePrint} 
+            className="bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded text-sm font-bold flex gap-2 shadow-lg transition-all cursor-pointer"
           >
-            <Download size={16}/> {isDownloading ? 'Generando...' : 'Descargar PDF'}
+            <Printer size={16}/> Guardar PDF
           </button>
         </div>
 
+        {/* ... FORMULARIO (Igual que antes) ... */}
         <div className="p-6 space-y-8 pb-20">
-          {/* TEMA & FOTO */}
           <section className="grid grid-cols-2 gap-4">
              <div>
                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Color Tema</label>
@@ -115,7 +108,6 @@ export default function CVBuilder() {
              <div>
                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Foto URL</label>
                <input name="photoUrl" placeholder="https://..." value={cv.personal.photoUrl} onChange={handlePersonalChange} className="w-full border p-2 rounded text-xs"/>
-               <p className="text-[10px] text-gray-400 mt-1">Si falla la descarga, borra esto.</p>
              </div>
           </section>
 
@@ -194,24 +186,19 @@ export default function CVBuilder() {
       </aside>
 
       {/* ================= PREVIEW (DERECHA) ================= */}
-      <main className="flex-1 bg-gray-500 overflow-y-auto p-4 md:p-8 flex justify-center">
+      <main className="flex-1 bg-gray-500 overflow-y-auto p-4 md:p-8 flex justify-center print:p-0 print:bg-white print:m-0">
         
-        {/* CONTENEDOR DE LA HOJA */}
+        {/* HOJA DE CV - Le ponemos ID para controlarla */}
         <div 
-          ref={componentRef} 
-          className="bg-white shadow-2xl w-[210mm] flex items-stretch min-h-[297mm]"
-          style={{ height: 'fit-content' }} 
+          id="cv-document"
+          className="bg-white shadow-2xl w-[210mm] flex items-stretch min-h-[297mm] print:w-full print:shadow-none"
         >
           
           {/* COLUMNA IZQUIERDA */}
-          <div style={{ backgroundColor: cv.themeColor }} className="w-[32%] text-white p-6 pt-10 flex flex-col shrink-0">
+          <div style={{ backgroundColor: cv.themeColor }} className="w-[32%] text-white p-6 pt-10 flex flex-col shrink-0 print:h-auto">
             <div className="w-28 h-28 bg-white/20 rounded-full mx-auto mb-6 overflow-hidden border-4 border-white/30 flex items-center justify-center shrink-0">
                {cv.personal.photoUrl ? (
-                 <img 
-                   src={cv.personal.photoUrl} 
-                   alt="Profile" 
-                   className="w-full h-full object-cover" 
-                 />
+                 <img src={cv.personal.photoUrl} alt="Profile" className="w-full h-full object-cover" />
                ) : (
                  <span className="text-4xl font-bold">{cv.personal.name.charAt(0)}</span>
                )}
@@ -265,7 +252,7 @@ export default function CVBuilder() {
           </div>
 
           {/* COLUMNA DERECHA */}
-          <div className="w-[68%] p-8 pt-10 text-slate-800 bg-white flex flex-col">
+          <div className="w-[68%] p-8 pt-10 text-slate-800 bg-white flex flex-col print:h-auto">
             <header className="mb-6 border-b-2 pb-4 shrink-0" style={{ borderColor: cv.themeColor }}>
               <h1 className="text-3xl font-extrabold uppercase tracking-tight leading-none mb-1">{cv.personal.name}</h1>
               <h2 className="text-lg font-medium" style={{ color: cv.themeColor }}>{cv.personal.title}</h2>
