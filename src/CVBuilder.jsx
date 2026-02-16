@@ -61,8 +61,7 @@ export default function CVBuilder() {
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { 
         scale: 2, 
-        useCORS: true, // Vital para fotos externas
-        logging: true, // Para ver errores en consola si falla
+         logging: true, // Para ver errores en consola si falla
         scrollY: 0
       },
       jsPDF: { 
@@ -212,7 +211,6 @@ export default function CVBuilder() {
                    src={cv.personal.photoUrl} 
                    alt="Profile" 
                    className="w-full h-full object-cover" 
-                   crossOrigin="anonymous" // <--- ESTO ES CLAVE PARA QUE NO FALLE
                  />
                ) : (
                  <span className="text-4xl font-bold">{cv.personal.name.charAt(0)}</span>
