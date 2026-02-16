@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { Link } from "react-router-dom";
-import { useReactToPrint } from 'react-to-print';
-import { Mail, Phone, MapPin, Linkedin, Trash2, PlusCircle, Printer, ArrowLeft, LayoutTemplate, Globe } from 'lucide-react';
+import html2pdf from 'html2pdf.js'; // <--- CAMBIO IMPORTANTE
+import { Mail, Phone, MapPin, Linkedin, Trash2, PlusCircle, Download, ArrowLeft, LayoutTemplate, Globe } from 'lucide-react';
 
 export default function CVBuilder() {
   // --- ESTADO INICIAL ---
@@ -9,16 +9,16 @@ export default function CVBuilder() {
     themeColor: '#2563eb',
     personal: {
       name: "Guido Lavesari",
-      title: "Tu Cargo Objetivo",
+      title: "Product Marketing Manager",
       email: "guido@lavesari.com.ar",
       phone: "+34 666 110 145",
       location: "Valencia, España",
       linkedin: "/in/guidolavesari",
       photoUrl: "https://media.licdn.com/dms/image/v2/D4D03AQHeo6jBDnImhg/profile-displayphoto-shrink_200_200/profile-displayphoto-shrink_200_200/0/1719770203810?e=1772668800&v=beta&t=bpce329V0MDDEgr3KpEUot8XPT4bDR11HJc4E4KNVgY", 
-      summary: "Resumen profesional enfocado en resultados..."
+      summary: "Profesional enfocado en Sales Enablement y Arquitectura de Software..."
     },
     experience: [
-      { id: 1, role: "Cargo Actual", company: "Empresa", date: "2021 - Presente", description: "• Logro principal\n• Gestión de equipos..." }
+      { id: 1, role: "Product Marketing Specialist", company: "Jeff App", date: "2022 - 2023", description: "Retención: Estrategia con Braze para base de 100k+ usuarios..." }
     ],
     education: [
       { id: 1, degree: "Master IA e Innovación", school: "Founderz", date: "2024" },
@@ -29,44 +29,59 @@ export default function CVBuilder() {
       { id: 1, language: "Español", level: "Nativo" },
       { id: 2, language: "Inglés", level: "C1 - Avanzado" }
     ],
-    skills: ["Habilidad 1", "Habilidad 2"]
+    skills: ["HubSpot", "Braze", "Salesforce", "Zapier"]
   });
 
-  // --- CONTROLADORES GENÉRICOS ---
-  const handlePersonalChange = (e) => setCv({ ...cv, personal: { ...cv.personal, [e.target.name]: e.target.value } });
-  
-  const handleSkillsChange = (e) => setCv({ ...cv, skills: e.target.value.split(',').map(s => s.trim()) });
+  const [isDownloading, setIsDownloading] = useState(false);
 
+  // --- CONTROLADORES ---
+  const handlePersonalChange = (e) => setCv({ ...cv, personal: { ...cv.personal, [e.target.name]: e.target.value } });
+  const handleSkillsChange = (e) => setCv({ ...cv, skills: e.target.value.split(',').map(s => s.trim()) });
   const addItem = (section, template) => setCv({ ...cv, [section]: [...cv[section], { ...template, id: Date.now() }] });
-  
   const removeItem = (section, id) => setCv({ ...cv, [section]: cv[section].filter(i => i.id !== id) });
-  
   const updateItem = (section, id, field, value) => {
     const updated = cv[section].map(i => i.id === id ? { ...i, [field]: value } : i);
     setCv({ ...cv, [section]: updated });
   };
 
-// --- IMPRESIÓN (CORREGIDA) ---
+  // --- NUEVA LÓGICA DE DESCARGA PDF ---
   const componentRef = useRef();
-  
-  const handlePrint = useReactToPrint({
-    contentRef: componentRef, // Referencia al contenido a imprimir
-    documentTitle: `CV_${cv.personal.name}`,
-    // Eliminamos la función 'print' personalizada que causaba el error
-  });
+
+  const handleDownloadPDF = () => {
+    const element = componentRef.current;
+    setIsDownloading(true);
+
+    // 1. Calcular la altura real del contenido para hacer un PDF "Infinito"
+    // Un A4 normal mide 297mm de alto. Nosotros calculamos cuánto mide el tuyo.
+    const elementHeightPx = element.scrollHeight;
+    const pxToMm = 0.264583; // Factor de conversión estándar
+    const pdfHeightMm = Math.max(elementHeightPx * pxToMm, 297); // Mínimo un A4, si es más largo, crece.
+
+    const opt = {
+      margin: 0,
+      filename: `CV_${cv.personal.name.replace(/\s+/g, '_')}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { 
+        scale: 2, // Aumentamos la calidad (Retina)
+        useCORS: true, // Importante para cargar tu foto de LinkedIn
+        scrollY: 0 
+      },
+      jsPDF: { 
+        unit: 'mm', 
+        format: [210, pdfHeightMm], // <--- AQUÍ ESTÁ LA MAGIA (Ancho fijo, Alto dinámico)
+        orientation: 'portrait' 
+      }
+    };
+
+    // Generar y Guardar
+    html2pdf().set(opt).from(element).save().then(() => {
+      setIsDownloading(false);
+    });
+  };
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row font-sans">
       
-      {/* --- ESTILOS DE IMPRESIÓN (Inyectados aquí para seguridad) --- */}
-      <style>{`
-        @media print {
-          @page { size: auto; margin: 0mm; }
-          body { -webkit-print-color-adjust: exact; }
-          html, body { height: auto; }
-        }
-      `}</style>
-
       {/* ================= EDITOR (IZQUIERDA) ================= */}
       <aside className="w-full md:w-[450px] bg-white h-screen overflow-y-auto border-r border-gray-200 shadow-xl z-10 print:hidden flex flex-col">
         <div className="p-4 bg-slate-900 text-white flex justify-between items-center sticky top-0 z-20">
@@ -74,9 +89,13 @@ export default function CVBuilder() {
             <Link to="/" className="hover:bg-slate-700 p-2 rounded"><ArrowLeft size={20}/></Link>
             <h2 className="font-bold">CV Studio</h2>
           </div>
-          {/* El botón ahora llama a la función corregida */}
-          <button onClick={handlePrint} className="bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded text-sm font-bold flex gap-2 shadow-lg hover:shadow-blue-500/50 transition-all cursor-pointer">
-            <Printer size={16}/> Descargar PDF
+          <button 
+            onClick={handleDownloadPDF} 
+            disabled={isDownloading}
+            className={`px-3 py-1.5 rounded text-sm font-bold flex gap-2 shadow-lg transition-all 
+              ${isDownloading ? 'bg-gray-500 cursor-wait' : 'bg-blue-600 hover:bg-blue-700 hover:shadow-blue-500/50 cursor-pointer'}`}
+          >
+            <Download size={16}/> {isDownloading ? 'Generando...' : 'Descargar PDF'}
           </button>
         </div>
 
@@ -144,7 +163,7 @@ export default function CVBuilder() {
             ))}
           </section>
 
-          {/* IDIOMAS (NUEVO) */}
+          {/* IDIOMAS */}
           <section className="space-y-4 border-t pt-4">
             <div className="flex justify-between items-center">
               <h3 className="text-xs font-bold text-gray-400 uppercase">🌍 Idiomas</h3>
@@ -161,33 +180,30 @@ export default function CVBuilder() {
 
            {/* SKILLS */}
            <section className="space-y-2 border-t pt-4">
-            <h3 className="text-xs font-bold text-gray-400 uppercase">⚡ Skills (separar con comas)</h3>
+            <h3 className="text-xs font-bold text-gray-400 uppercase">⚡ Skills</h3>
             <textarea value={cv.skills.join(', ')} onChange={handleSkillsChange} className="w-full border p-2 rounded text-sm h-16" />
           </section>
         </div>
       </aside>
 
       {/* ================= PREVIEW (DERECHA) ================= */}
-      <main className="flex-1 bg-gray-500 overflow-y-auto p-4 md:p-8 flex justify-center print:p-0 print:bg-white print:m-0">
+      <main className="flex-1 bg-gray-500 overflow-y-auto p-4 md:p-8 flex justify-center">
         
-        {/* CONTENEDOR DE LA HOJA (Flex para que las columnas se estiren igual) */}
-        <div ref={componentRef} className="bg-white shadow-2xl w-[210mm] flex items-stretch print:w-full print:shadow-none min-h-[297mm]">
+        {/* CONTENEDOR DE LA HOJA - REFERENCIA PARA HTML2PDF */}
+        <div 
+          ref={componentRef} 
+          className="bg-white shadow-2xl w-[210mm] flex items-stretch min-h-[297mm]"
+          style={{ height: 'fit-content' }} // Importante para que el plugin lea la altura real
+        >
           
-          {/* COLUMNA IZQUIERDA (Color Personalizado) */}
-          {/* 'flex-col' para distribuir contenido verticalmente */}
+          {/* COLUMNA IZQUIERDA */}
           <div style={{ backgroundColor: cv.themeColor }} className="w-[32%] text-white p-6 pt-10 flex flex-col shrink-0">
-            
-            {/* FOTO */}
             <div className="w-28 h-28 bg-white/20 rounded-full mx-auto mb-6 overflow-hidden border-4 border-white/30 flex items-center justify-center shrink-0">
-               {cv.personal.photoUrl ? (
-                 <img src={cv.personal.photoUrl} alt="Profile" className="w-full h-full object-cover" />
-               ) : (
-                 <span className="text-4xl font-bold">{cv.personal.name.charAt(0)}</span>
-               )}
+               {cv.personal.photoUrl ? <img src={cv.personal.photoUrl} alt="Profile" className="w-full h-full object-cover" /> : <span className="text-4xl font-bold">{cv.personal.name.charAt(0)}</span>}
             </div>
 
             <div className="space-y-6 text-sm flex-1">
-              {/* CONTACTO */}
+              {/* Contacto */}
               <div>
                 <h3 className="font-bold uppercase tracking-wider mb-2 border-b border-white/30 pb-1 text-white/90 text-xs">Contacto</h3>
                 <ul className="space-y-2 text-white/80 text-xs">
@@ -197,8 +213,8 @@ export default function CVBuilder() {
                   <li className="flex items-center gap-2"><Linkedin size={12}/> <span className="truncate w-32">{cv.personal.linkedin}</span></li>
                 </ul>
               </div>
-
-              {/* SKILLS */}
+              
+              {/* Skills */}
               <div>
                 <h3 className="font-bold uppercase tracking-wider mb-2 border-b border-white/30 pb-1 text-white/90 text-xs">Skills</h3>
                 <div className="flex flex-wrap gap-1">
@@ -206,7 +222,7 @@ export default function CVBuilder() {
                 </div>
               </div>
 
-              {/* EDUCACIÓN */}
+              {/* Educación */}
               <div>
                 <h3 className="font-bold uppercase tracking-wider mb-2 border-b border-white/30 pb-1 text-white/90 text-xs">Educación</h3>
                 {cv.education.map((edu) => (
@@ -218,7 +234,7 @@ export default function CVBuilder() {
                 ))}
               </div>
 
-              {/* IDIOMAS (NUEVO) */}
+              {/* Idiomas */}
               {cv.languages.length > 0 && (
                 <div>
                   <h3 className="font-bold uppercase tracking-wider mb-2 border-b border-white/30 pb-1 text-white/90 text-xs">Idiomas</h3>
@@ -233,7 +249,7 @@ export default function CVBuilder() {
             </div>
           </div>
 
-          {/* COLUMNA DERECHA (Contenido Principal) */}
+          {/* COLUMNA DERECHA */}
           <div className="w-[68%] p-8 pt-10 text-slate-800 bg-white flex flex-col">
             <header className="mb-6 border-b-2 pb-4 shrink-0" style={{ borderColor: cv.themeColor }}>
               <h1 className="text-3xl font-extrabold uppercase tracking-tight leading-none mb-1">{cv.personal.name}</h1>
