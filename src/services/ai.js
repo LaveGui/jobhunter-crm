@@ -6,7 +6,9 @@ export const generateCVContent = async (apiKey, userContext, jobDescription) => 
   if (!jobDescription) throw new Error("Falta la descripción de la oferta");
 
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  
+  // CAMBIO AQUÍ: Usamos 'gemini-pro' que es el modelo estándar universal
+  const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
   const prompt = `
     ACTÚA COMO: Un experto redactor de CVs y reclutador senior.
@@ -23,7 +25,7 @@ export const generateCVContent = async (apiKey, userContext, jobDescription) => 
     1. Analiza mi perfil y la oferta.
     2. Reescribe mi "Resumen/Perfil" para que encaje con la oferta, usando palabras clave de la misma.
     3. Selecciona o adapta 1 experiencia laboral más relevante, destacando logros que importen para esta oferta.
-    4. Devuelve la respuesta EXCLUSIVAMENTE en formato JSON válido (sin markdown, sin comillas extra).
+    4. Devuelve la respuesta EXCLUSIVAMENTE en formato JSON válido (sin markdown, sin comillas extra al inicio o final).
     
     FORMATO JSON ESPERADO:
     {
@@ -42,11 +44,13 @@ export const generateCVContent = async (apiKey, userContext, jobDescription) => 
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const text = response.text();
-    // Limpieza básica por si Gemini devuelve bloques de código markdown
+    
     const jsonString = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    
     return JSON.parse(jsonString);
   } catch (error) {
     console.error("Error IA:", error);
-    throw error;
+    // Mensaje de error más amigable
+    throw new Error(`Error de IA: ${error.message}. Verifica tu API Key.`);
   }
 };
