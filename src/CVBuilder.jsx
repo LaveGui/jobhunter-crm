@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { Link } from "react-router-dom";
 import html2pdf from 'html2pdf.js'; // <--- IMPORTANTE: La librería que reinstalamos
-import { Mail, Phone, MapPin, Linkedin, Trash2, PlusCircle, Printer, ArrowLeft, LayoutTemplate, Globe } from 'lucide-react';
+import { Mail, Phone, MapPin, Linkedin, Trash2, PlusCircle, Printer, ArrowLeft, LayoutTemplate, Globe, Download } from 'lucide-react';
 
 export default function CVBuilder() {
   // --- ESTADO INICIAL ---
