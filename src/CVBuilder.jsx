@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { Link } from "react-router-dom";
 import html2pdf from 'html2pdf.js';
-import { Mail, Phone, MapPin, Linkedin, Trash2, PlusCircle, Printer, ArrowLeft, LayoutTemplate, Globe, Download } from 'lucide-react';
+import { Mail, Phone, MapPin, Linkedin, Trash2, PlusCircle, Printer, ArrowLeft, LayoutTemplate, Globe, Download, ScanEye } from 'lucide-react';
 
 export default function CVBuilder() {
   // --- ESTADO INICIAL ---
@@ -33,6 +33,7 @@ export default function CVBuilder() {
   });
 
   const [isDownloading, setIsDownloading] = useState(false);
+  const [debugMode, setDebugMode] = useState(false); // <--- NUEVO ESTADO DEBUG
   const componentRef = useRef();
 
   // --- CONTROLADORES ---
@@ -82,25 +83,41 @@ export default function CVBuilder() {
     }
   };
 
+  // --- CLASES PARA DEBUGGING VISUAL ---
+  // Si debugMode es true, añadimos bordes rojos a todo
+  const debugClass = debugMode ? "outline outline-1 outline-red-500/50 bg-red-500/10" : "";
+
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row font-sans">
       
       {/* ================= EDITOR (IZQUIERDA) ================= */}
       <aside className="w-full md:w-[450px] bg-white h-screen overflow-y-auto border-r border-gray-200 shadow-xl z-10 print:hidden flex flex-col">
-        {/* Header */}
+        {/* Header con Toggle Debug */}
         <div className="p-4 bg-slate-900 text-white flex justify-between items-center sticky top-0 z-20">
           <div className="flex items-center gap-2">
             <Link to="/" className="hover:bg-slate-700 p-2 rounded"><ArrowLeft size={20}/></Link>
             <h2 className="font-bold">CV Studio</h2>
           </div>
-          <button 
-            onClick={handleDownloadPDF} 
-            disabled={isDownloading}
-            className={`px-3 py-1.5 rounded text-sm font-bold flex gap-2 shadow-lg transition-all 
-              ${isDownloading ? 'bg-gray-500 cursor-wait' : 'bg-blue-600 hover:bg-blue-700 cursor-pointer'}`}
-          >
-            {isDownloading ? 'Generando...' : <><Download size={16}/> Descargar PDF</>}
-          </button>
+          
+          <div className="flex items-center gap-3">
+            {/* BOTÓN DEBUG */}
+            <button 
+              onClick={() => setDebugMode(!debugMode)}
+              className={`text-[10px] px-2 py-1 rounded border flex items-center gap-1 transition-all
+                ${debugMode ? 'bg-red-500 text-white border-red-500' : 'bg-transparent text-gray-400 border-gray-600 hover:text-white'}`}
+            >
+              <ScanEye size={12}/> {debugMode ? 'Regla ON' : 'Regla OFF'}
+            </button>
+
+            <button 
+              onClick={handleDownloadPDF} 
+              disabled={isDownloading}
+              className={`px-3 py-1.5 rounded text-sm font-bold flex gap-2 shadow-lg transition-all 
+                ${isDownloading ? 'bg-gray-500 cursor-wait' : 'bg-blue-600 hover:bg-blue-700 cursor-pointer'}`}
+            >
+              {isDownloading ? '...' : <><Download size={16}/> PDF</>}
+            </button>
+          </div>
         </div>
 
         {/* Formulario */}
@@ -193,10 +210,10 @@ export default function CVBuilder() {
       {/* ================= PREVIEW (DERECHA) ================= */}
       <main className="flex-1 bg-gray-500 overflow-y-auto p-4 md:p-8 flex justify-center">
         
-        {/* HOJA DE CV BLINDADA */}
+        {/* HOJA DE CV */}
         <div 
           ref={componentRef}
-          className="shadow-2xl w-[210mm] flex items-stretch min-h-[297mm]"
+          className={`shadow-2xl w-[210mm] flex items-stretch min-h-[297mm] ${debugClass}`}
           style={{ 
             height: 'fit-content', 
             background: `linear-gradient(90deg, ${cv.themeColor} 0%, ${cv.themeColor} 32%, #ffffff 32%, #ffffff 100%)`,
@@ -206,11 +223,11 @@ export default function CVBuilder() {
           
           {/* COLUMNA IZQUIERDA */}
           <div 
-            className="w-[32%] p-6 pt-10 flex flex-col shrink-0"
+            className={`w-[32%] p-6 pt-10 flex flex-col shrink-0 ${debugClass}`}
             style={{ color: '#ffffff' }}
           >
             {/* Foto */}
-            <div className="w-28 h-28 rounded-full mx-auto mb-6 overflow-hidden flex items-center justify-center shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.2)', border: '4px solid rgba(255,255,255,0.3)' }}>
+            <div className={`w-28 h-28 rounded-full mx-auto mb-6 overflow-hidden flex items-center justify-center shrink-0 ${debugClass}`} style={{ backgroundColor: 'rgba(255,255,255,0.2)', border: '4px solid rgba(255,255,255,0.3)' }}>
                {cv.personal.photoUrl ? (
                  <img src={cv.personal.photoUrl} alt="Profile" className="w-full h-full object-cover" crossOrigin="anonymous" />
                ) : (
@@ -220,59 +237,61 @@ export default function CVBuilder() {
 
             <div className="space-y-8 text-sm flex-1">
               
-              {/* CONTACTO - AJUSTE: items-center + mt-[-3px] para levantar el texto */}
-              <div>
+              {/* CONTACTO */}
+              <div className={debugClass}>
                 <h3 className="font-bold uppercase tracking-wider mb-3 pb-2 text-xs" style={{ borderBottom: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.9)' }}>Contacto</h3>
                 <ul className="space-y-3 text-xs" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                  <li className="flex items-center gap-3">
-                    <div className="shrink-0"><Phone size={14}/></div> 
-                    <span className="mt-[-3px]">{cv.personal.phone}</span>
+                  {/* ALINEACIÓN: flex items-center estricto */}
+                  <li className={`flex items-center gap-3 ${debugClass}`}>
+                    <div className="shrink-0 flex items-center justify-center w-4 h-4"><Phone size={14}/></div> 
+                    <span className="leading-none">{cv.personal.phone}</span>
                   </li>
-                  <li className="flex items-center gap-3">
-                    <div className="shrink-0"><Mail size={14}/></div> 
-                    <span className="break-all mt-[-3px]">{cv.personal.email}</span>
+                  <li className={`flex items-center gap-3 ${debugClass}`}>
+                    <div className="shrink-0 flex items-center justify-center w-4 h-4"><Mail size={14}/></div> 
+                    <span className="break-all leading-none">{cv.personal.email}</span>
                   </li>
-                  <li className="flex items-center gap-3">
-                    <div className="shrink-0"><MapPin size={14}/></div> 
-                    <span className="mt-[-3px]">{cv.personal.location}</span>
+                  <li className={`flex items-center gap-3 ${debugClass}`}>
+                    <div className="shrink-0 flex items-center justify-center w-4 h-4"><MapPin size={14}/></div> 
+                    <span className="leading-none">{cv.personal.location}</span>
                   </li>
-                  <li className="flex items-center gap-3">
-                    <div className="shrink-0"><Linkedin size={14}/></div> 
-                    <span className="break-all mt-[-3px]">{cv.personal.linkedin}</span>
+                  <li className={`flex items-center gap-3 ${debugClass}`}>
+                    <div className="shrink-0 flex items-center justify-center w-4 h-4"><Linkedin size={14}/></div> 
+                    <span className="break-all leading-none">{cv.personal.linkedin}</span>
                   </li>
                 </ul>
               </div>
               
-              {/* SKILLS - AJUSTE: justify-center + mt-[-2px] */}
-              <div>
+              {/* SKILLS */}
+              <div className={debugClass}>
                 <h3 className="font-bold uppercase tracking-wider mb-3 pb-2 text-xs" style={{ borderBottom: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.9)' }}>Skills</h3>
                 <div className="flex flex-wrap gap-2">
                   {cv.skills.map((s, i) => (
-                    <span key={i} className="px-2 py-1.5 rounded text-[10px] leading-none flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}>
-                      <span className="mt-[-2px]">{s}</span>
+                    // CENTRADO: flex center + leading-none + padding exacto
+                    <span key={i} className={`px-2 py-1.5 rounded text-[10px] flex items-center justify-center leading-none ${debugClass}`} style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}>
+                      {s}
                     </span>
                   ))}
                 </div>
               </div>
 
               {/* EDUCACIÓN */}
-              <div>
+              <div className={debugClass}>
                 <h3 className="font-bold uppercase tracking-wider mb-3 pb-2 text-xs" style={{ borderBottom: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.9)' }}>Educación</h3>
                 {cv.education.map((edu) => (
-                   <div key={edu.id} className="mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                     <p className="font-bold text-xs mb-0.5">{edu.degree}</p>
-                     <p className="text-[10px]" style={{ opacity: 0.8 }}>{edu.school}</p>
-                     <p className="text-[10px]" style={{ opacity: 0.8 }}>{edu.date}</p>
+                   <div key={edu.id} className={`mb-4 ${debugClass}`} style={{ color: 'rgba(255,255,255,0.9)' }}>
+                     <p className="font-bold text-xs mb-0.5 leading-tight">{edu.degree}</p>
+                     <p className="text-[10px] leading-tight" style={{ opacity: 0.8 }}>{edu.school}</p>
+                     <p className="text-[10px] leading-tight" style={{ opacity: 0.8 }}>{edu.date}</p>
                    </div>
                 ))}
               </div>
 
               {/* IDIOMAS */}
               {cv.languages.length > 0 && (
-                <div>
+                <div className={debugClass}>
                   <h3 className="font-bold uppercase tracking-wider mb-3 pb-2 text-xs" style={{ borderBottom: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.9)' }}>Idiomas</h3>
                   {cv.languages.map((lang) => (
-                    <div key={lang.id} className="mb-2 flex justify-between items-baseline text-xs" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                    <div key={lang.id} className={`mb-2 flex justify-between items-baseline text-xs ${debugClass}`} style={{ color: 'rgba(255,255,255,0.9)' }}>
                       <span className="font-semibold">{lang.language}</span>
                       <span className="text-[10px]" style={{ opacity: 0.8 }}>{lang.level}</span>
                     </div>
@@ -283,49 +302,45 @@ export default function CVBuilder() {
           </div>
 
           {/* COLUMNA DERECHA */}
-          <div className="w-[68%] p-8 pt-10 flex flex-col" style={{ backgroundColor: 'transparent', color: '#1e293b' }}>
+          <div className={`w-[68%] p-8 pt-10 flex flex-col ${debugClass}`} style={{ backgroundColor: 'transparent', color: '#1e293b' }}>
             {/* Header */}
-            <header className="mb-8 pb-4 shrink-0" style={{ borderBottom: `2px solid ${cv.themeColor}` }}>
+            <header className={`mb-8 pb-4 shrink-0 ${debugClass}`} style={{ borderBottom: `2px solid ${cv.themeColor}` }}>
               <h1 className="text-4xl font-extrabold uppercase tracking-tight leading-none mb-2" style={{ color: '#1e293b' }}>{cv.personal.name}</h1>
-              <h2 className="text-lg font-bold tracking-wide" style={{ color: cv.themeColor }}>{cv.personal.title}</h2>
+              <h2 className="text-lg font-bold tracking-wide leading-none" style={{ color: cv.themeColor }}>{cv.personal.title}</h2>
             </header>
 
             {/* Perfil */}
-            <section className="mb-8 shrink-0">
-              {/* AJUSTE: Levantamos el texto del título PERFIL */}
+            <section className={`mb-8 shrink-0 ${debugClass}`}>
               <h3 className="text-xs font-bold uppercase tracking-wider mb-3 flex items-center gap-2" style={{ color: '#334155' }}>
-                <span className="p-1 rounded flex items-center justify-center" style={{ backgroundColor: cv.themeColor, color: '#ffffff' }}><LayoutTemplate size={12}/></span> 
-                <span className="mt-[-2px]">Perfil</span>
+                <span className="p-1 rounded flex items-center justify-center w-5 h-5" style={{ backgroundColor: cv.themeColor, color: '#ffffff' }}><LayoutTemplate size={12}/></span> 
+                <span className="leading-none mt-[1px]">Perfil</span>
               </h3>
               <p className="text-xs leading-relaxed text-justify" style={{ color: '#475569' }}>{cv.personal.summary}</p>
             </section>
 
             {/* Experiencia */}
             <section className="flex-1">
-              {/* AJUSTE: Levantamos el texto del título EXPERIENCIA */}
               <h3 className="text-xs font-bold uppercase tracking-wider mb-5 flex items-center gap-2" style={{ color: '#334155' }}>
-                <span className="p-1 rounded flex items-center justify-center" style={{ backgroundColor: cv.themeColor, color: '#ffffff' }}><LayoutTemplate size={12}/></span> 
-                <span className="mt-[-2px]">Experiencia</span>
+                <span className="p-1 rounded flex items-center justify-center w-5 h-5" style={{ backgroundColor: cv.themeColor, color: '#ffffff' }}><LayoutTemplate size={12}/></span> 
+                <span className="leading-none mt-[1px]">Experiencia</span>
               </h3>
               
               <div className="space-y-6">
                 {cv.experience.map((exp) => (
-                  <div key={exp.id} className="relative pl-4" style={{ borderLeft: `2px solid ${cv.themeColor}40` }}>
+                  <div key={exp.id} className={`relative pl-4 ${debugClass}`} style={{ borderLeft: `2px solid ${cv.themeColor}40` }}>
                     
-                    {/* Punto del Timeline - Ajustado a top-1 para alinearse con texto levantado */}
-                    <div className="absolute top-1 w-2 h-2 rounded-full" style={{ backgroundColor: cv.themeColor, left: '-5px' }}></div>
+                    {/* Punto del Timeline - Posición absoluta estricta */}
+                    <div className="absolute top-[6px] w-2 h-2 rounded-full" style={{ backgroundColor: cv.themeColor, left: '-5px' }}></div>
                     
-                    <div className="flex justify-between items-start mb-1">
-                      {/* Título Cargo - mt-[-2px] para levantar */}
-                      <h4 className="font-bold text-sm mt-[-2px]" style={{ color: '#1e293b' }}>{exp.role}</h4>
-                      
-                      {/* Fecha Badge - Texto levantado internamente */}
-                      <span className="text-[10px] font-bold px-2 py-1 rounded flex items-center justify-center whitespace-nowrap" style={{ backgroundColor: '#f3f4f6', color: '#64748b' }}>
-                        <span className="mt-[-2px]">{exp.date}</span>
+                    <div className="flex justify-between items-center mb-1">
+                      <h4 className="font-bold text-sm leading-none" style={{ color: '#1e293b' }}>{exp.role}</h4>
+                      {/* Fecha Badge */}
+                      <span className="text-[10px] font-bold px-2 py-1 rounded flex items-center justify-center leading-none whitespace-nowrap" style={{ backgroundColor: '#f3f4f6', color: '#64748b' }}>
+                        {exp.date}
                       </span>
                     </div>
                     
-                    <p className="text-xs font-bold mb-2" style={{ color: cv.themeColor }}>{exp.company}</p>
+                    <p className="text-xs font-bold mb-2 leading-tight" style={{ color: cv.themeColor }}>{exp.company}</p>
                     <p className="text-xs leading-relaxed whitespace-pre-line" style={{ color: '#475569' }}>{exp.description}</p>
                   </div>
                 ))}
