@@ -1,9 +1,54 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link } from "react-router-dom";
-import { Mail, Phone, MapPin, Linkedin, Trash2, PlusCircle, Printer, ArrowLeft, LayoutTemplate, Globe, Download, ScanEye, Settings, Type, AlignJustify, Bot, Sparkles } from 'lucide-react';
-import { generateCVContent } from './services/ai'; // <--- IMPORTANTE
+import { Link, useLocation } from "react-router-dom";
+import { Mail, Phone, MapPin, Linkedin, Trash2, PlusCircle, Printer, ArrowLeft, LayoutTemplate, Globe, Download, ScanEye, Settings, Type, AlignJustify, Bot, Sparkles, Briefcase, CheckCircle, Save, History, FileText } from 'lucide-react'; // <--- Añadí iconos History y FileText
+import useGoogleSheets from './hooks/useGoogleSheets';
+
+// --- COMPONENTE AUXILIAR PARA NEGRITAS Y LISTAS ---
+const RichText = ({ text, className, style }) => {
+  if (!text) return null;
+  const lines = text.split('\n');
+  return (
+    <div className={`whitespace-pre-wrap ${className}`} style={style}>
+      {lines.map((line, index) => {
+        const isList = line.trim().startsWith('- ') || line.trim().startsWith('• ');
+        const cleanLine = isList ? line.trim().substring(2) : line;
+        const parts = cleanLine.split(/(\*\*.*?\*\*)/g);
+        const content = parts.map((part, i) => {
+          if (part.startsWith('**') && part.endsWith('**')) {
+            return <strong key={i} className="font-bold">{part.slice(2, -2)}</strong>;
+          }
+          return part;
+        });
+        if (isList) {
+          return (
+            <div key={index} className="flex items-start gap-2 ml-1 relative">
+              <span className="mt-[0.4em] w-1 h-1 rounded-full bg-current shrink-0 opacity-70"></span>
+              <span className="flex-1">{content}</span>
+            </div>
+          );
+        }
+        return <div key={index} className="min-h-[1em]">{content}</div>;
+      })}
+    </div>
+  );
+};
+
+// --- FUNCIÓN DE EXPORTACIÓN (TEXTO PLANO PARA EXCEL) ---
+const cvToString = (cv) => {
+  let text = `*** PERFIL ***\n${cv.personal.summary}\n\n`;
+  text += `*** EXPERIENCIA ***\n`;
+  cv.experience.forEach(exp => {
+    // Usamos un separador especial | y ~ para facilitar el parseo posterior
+    text += `• ${exp.company} | ${exp.role} | ${exp.date}\n${exp.description}\n\n`;
+  });
+  text += `*** SKILLS ***\n${cv.skills.join(', ')}`;
+  return text;
+};
 
 export default function CVBuilder() {
+  const location = useLocation();
+  const { jobs, updateJob } = useGoogleSheets();
+  
   // --- ESTADO INICIAL ---
   const [cv, setCv] = useState({
     themeColor: '#2563eb',
@@ -15,10 +60,10 @@ export default function CVBuilder() {
       location: "Valencia, España",
       linkedin: "/in/guidolavesari",
       photoUrl: "", 
-      summary: "Profesional enfocado en Sales Enablement y Arquitectura de Software..."
+      summary: "Profesional enfocado en **Sales Enablement** y **Arquitectura de Software**.\n- Experto en CRM\n- Liderazgo de equipos ágiles"
     },
     experience: [
-      { id: 1, role: "Product Marketing Specialist", company: "Jeff App", date: "2022 - 2023", description: "Retención: Estrategia con Braze para base de 100k+ usuarios..." }
+      { id: 1, role: "Product Marketing Specialist", company: "Jeff App", date: "2022 - 2023", description: "- Lideré estrategia de **Retención** con Braze.\n- Aumenté el ROI un 20% en 3 meses." }
     ],
     education: [
       { id: 1, degree: "Master IA e Innovación", school: "Founderz", date: "2024" },
@@ -35,28 +80,18 @@ export default function CVBuilder() {
     nameSize: 32, roleSize: 14, companySize: 12, textSize: 10, lineHeight: 1.4, sectionGap: 20,
   });
 
-  // --- NUEVO ESTADO PARA IA ---
-  const [aiConfig, setAiConfig] = useState({
-    apiKey: '',
-    context: '', // Aquí pegarás el contenido de tu Google Doc
-    jobDescription: '' // Aquí pegarás la oferta actual
-  });
-  const [isGenerating, setIsGenerating] = useState(false);
-
-  const [activeTab, setActiveTab] = useState('content'); // content | design | ai
+  const [targetJob, setTargetJob] = useState(null);
+  const [activeTab, setActiveTab] = useState('content'); 
   const [debugMode, setDebugMode] = useState(false);
-  const componentRef = useRef();
+  const [showHistory, setShowHistory] = useState(false); // Estado para el modal de historial
 
-  // --- CARGAR CONFIGURACIÓN AL INICIO (Local Storage) ---
   useEffect(() => {
-    const savedKey = localStorage.getItem('gemini_api_key');
-    const savedContext = localStorage.getItem('gemini_context');
-    if (savedKey || savedContext) {
-      setAiConfig(prev => ({ ...prev, apiKey: savedKey || '', context: savedContext || '' }));
+    if (location.state?.jobContext) {
+      setTargetJob(location.state.jobContext);
     }
-  }, []);
+  }, [location]);
 
-  // --- HANDLERS ---
+  // --- HANDLERS BÁSICOS ---
   const handlePersonalChange = (e) => setCv({ ...cv, personal: { ...cv.personal, [e.target.name]: e.target.value } });
   const handleSkillsChange = (e) => setCv({ ...cv, skills: e.target.value.split(',').map(s => s.trim()) });
   const addItem = (section, template) => setCv({ ...cv, [section]: [...cv[section], { ...template, id: Date.now() }] });
@@ -65,49 +100,126 @@ export default function CVBuilder() {
     const updated = cv[section].map(i => i.id === id ? { ...i, [field]: value } : i);
     setCv({ ...cv, [section]: updated });
   };
-  const handlePrint = () => window.print();
 
-  // --- HANDLER IA ---
-  const handleSaveAiConfig = () => {
-    localStorage.setItem('gemini_api_key', aiConfig.apiKey);
-    localStorage.setItem('gemini_context', aiConfig.context);
-    alert("Configuración IA guardada en tu navegador 🧠");
+  // --- IMPRIMIR ---
+  const handlePrint = () => {
+    const originalTitle = document.title;
+    let suffix = "";
+    if (targetJob?.company) {
+      const initials = targetJob.company.substring(0, 3).toUpperCase().replace(/[^A-Z]/g, '');
+      suffix = `_${initials}`;
+    }
+    document.title = `CV_GuidoLavesari${suffix}`;
+    window.print();
+    document.title = originalTitle;
   };
 
-  const handleGenerateCV = async () => {
-    if (!aiConfig.apiKey || !aiConfig.context || !aiConfig.jobDescription) {
-      alert("Faltan datos: Asegúrate de tener API Key, tu Contexto y la Descripción de la oferta.");
-      return;
-    }
+  // --- GUARDAR Y APLICAR ---
+  const handleSaveAndApply = async () => {
+    if (!targetJob) return;
+    if (!window.confirm(`¿Quieres marcar "${targetJob.company}" como APLICADO?`)) return;
 
-    setIsGenerating(true);
+    const cvTextDump = cvToString(cv);
+    const today = new Date().toLocaleDateString();
+
     try {
-      const result = await generateCVContent(aiConfig.apiKey, aiConfig.context, aiConfig.jobDescription);
+      await updateJob({
+        id: targetJob.id,
+        status: 'Aplicado', 
+        cv_text: cvTextDump, 
+        date_applied: today, 
+        last_updated: new Date().toISOString() 
+      });
+      setTargetJob(prev => ({ ...prev, status: 'Aplicado', date_applied: today }));
+      alert("✅ ¡Oferta actualizada!");
+    } catch (error) {
+      console.error("Error:", error);
+      alert("❌ Error al guardar.");
+    }
+  };
+
+  // --- PARSER INTELIGENTE (IMPORTAR HISTORIAL) ---
+  const importCVFromHistory = (historyText) => {
+    if (!historyText) return;
+    if (!window.confirm("⚠️ Esto sobrescribirá el Perfil, Experiencia y Skills actuales con los datos seleccionados. ¿Continuar?")) return;
+
+    try {
+      // 1. Extraer Perfil
+      const summaryMatch = historyText.match(/\*\*\* PERFIL \*\*\*\n([\s\S]*?)\n\n\*\*\*/);
+      const newSummary = summaryMatch ? summaryMatch[1].trim() : cv.personal.summary;
+
+      // 2. Extraer Skills
+      const skillsMatch = historyText.match(/\*\*\* SKILLS \*\*\*\n([\s\S]*)/);
+      const newSkills = skillsMatch ? skillsMatch[1].split(',').map(s => s.trim()) : cv.skills;
+
+      // 3. Extraer Experiencia (La parte difícil)
+      // Buscamos el bloque entre EXPERIENCIA y SKILLS
+      const expBlockMatch = historyText.match(/\*\*\* EXPERIENCIA \*\*\*\n([\s\S]*?)\n\*\*\* SKILLS/);
+      let newExperience = [];
       
-      // Aplicar cambios mágicos
+      if (expBlockMatch) {
+        const expRaw = expBlockMatch[1];
+        // Dividimos por el bullet point '•'
+        const expParts = expRaw.split('•').filter(p => p.trim().length > 0);
+        
+        newExperience = expParts.map((part, index) => {
+          // Formato esperado: "Company | Role | Date \n Description"
+          // O el formato antiguo: "Company | Role (Date) \n Description"
+          const firstLineEnd = part.indexOf('\n');
+          const header = part.substring(0, firstLineEnd).trim(); // "Jeff App | PM | 2023"
+          const description = part.substring(firstLineEnd).trim();
+
+          // Intentamos parsear el header
+          let company = "Empresa", role = "Rol", date = "Fecha";
+          
+          if (header.includes('|')) {
+            const headerParts = header.split('|').map(s => s.trim());
+            company = headerParts[0] || company;
+            role = headerParts[1] || role;
+            // Si hay 3 partes, la 3ra es la fecha. Si hay 2, intentamos sacar fecha del parentesis
+            if (headerParts[2]) {
+              date = headerParts[2];
+            } else if (role.includes('(')) {
+              // Fallback formato antiguo "Role (Date)"
+              const dateMatch = role.match(/\((.*?)\)/);
+              if (dateMatch) {
+                date = dateMatch[1];
+                role = role.replace(`(${date})`, '').trim();
+              }
+            }
+          }
+
+          return {
+            id: Date.now() + index,
+            company,
+            role,
+            date,
+            description
+          };
+        });
+      }
+
+      // Si no pudimos parsear experiencia (formato antiguo roto), mantenemos la actual
+      const finalExperience = newExperience.length > 0 ? newExperience : cv.experience;
+
       setCv(prev => ({
         ...prev,
-        personal: { ...prev.personal, summary: result.summary },
-        skills: result.skills || prev.skills,
-        experience: [
-          { 
-            id: Date.now(), 
-            role: result.experience.role, 
-            company: result.experience.company, 
-            date: result.experience.date || "Presente", 
-            description: result.experience.description 
-          },
-          ...prev.experience // Mantenemos las anteriores abajo o las puedes borrar
-        ]
+        personal: { ...prev.personal, summary: newSummary },
+        skills: newSkills,
+        experience: finalExperience
       }));
-      alert("¡CV Adaptado con éxito! Revisa el Perfil y la primera Experiencia.");
-      setActiveTab('content'); // Volver a la pestaña de contenido para ver los cambios
-    } catch (error) {
-      alert("Error al generar: " + error.message);
-    } finally {
-      setIsGenerating(false);
+
+      setShowHistory(false);
+      alert("✅ Contenido importado con éxito. Revisa los detalles.");
+
+    } catch (e) {
+      console.error(e);
+      alert("❌ No se pudo importar este formato (es demasiado antiguo o diferente).");
     }
   };
+
+  const pendingJobs = jobs.filter(j => j.status === 'Prospecto');
+  const historyJobs = jobs.filter(j => j.cv_text && j.cv_text.length > 10); // Solo ofertas con CV guardado
 
   const debugClass = debugMode ? "debug-box" : "";
 
@@ -117,61 +229,87 @@ export default function CVBuilder() {
 
       {/* EDITOR */}
       <aside className="w-full md:w-[450px] bg-white h-screen overflow-y-auto border-r border-gray-200 shadow-xl z-10 print:hidden flex flex-col">
-        <div className="p-4 bg-slate-900 text-white flex justify-between items-center sticky top-0 z-20">
-          <div className="flex items-center gap-2"><Link to="/" className="hover:bg-slate-700 p-2 rounded"><ArrowLeft size={20}/></Link><h2 className="font-bold">CV Studio</h2></div>
-          <div className="flex items-center gap-2">
-             <button onClick={() => setDebugMode(!debugMode)} className={`text-[10px] px-2 py-1 rounded border ${debugMode ? 'bg-red-500 border-red-500' : 'border-gray-600 text-gray-400'}`}><ScanEye size={14}/></button>
-             <button onClick={handlePrint} className="bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded text-sm font-bold flex gap-2"><Printer size={16}/> PDF</button>
-          </div>
+        
+        {/* TOP BAR */}
+        <div className="bg-slate-900 text-white p-3 sticky top-0 z-30 shadow-md">
+           <div className="flex items-center justify-between mb-2">
+              <Link to="/" className="hover:bg-slate-700 p-1.5 rounded flex items-center gap-1 text-xs text-slate-300"><ArrowLeft size={14}/> Volver</Link>
+              <div className="flex items-center gap-2">
+                  <button onClick={() => setDebugMode(!debugMode)} className={`p-1 rounded border border-slate-600 text-slate-400 ${debugMode ? 'bg-red-500 text-white border-red-500' : ''}`}><ScanEye size={14}/></button>
+              </div>
+           </div>
+
+           {/* CONTROLES PRINCIPALES */}
+           <div className="flex gap-2 mb-3">
+             <button 
+                onClick={() => setShowHistory(!showHistory)}
+                className={`flex-1 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1 border transition-colors ${showHistory ? 'bg-slate-700 border-slate-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'}`}
+             >
+               <History size={14}/> Historial CVs
+             </button>
+           </div>
+
+           {/* MODAL DESPLEGABLE DE HISTORIAL */}
+           {showHistory && (
+             <div className="bg-white text-slate-800 rounded shadow-xl border border-slate-200 mb-3 overflow-hidden animate-fadeIn">
+               <div className="bg-slate-100 p-2 text-xs font-bold text-slate-500 uppercase border-b">Reutilizar contenido de:</div>
+               <div className="max-h-40 overflow-y-auto">
+                 {historyJobs.length === 0 ? (
+                   <div className="p-3 text-xs text-gray-400 text-center">No tienes CVs guardados todavía.</div>
+                 ) : (
+                   historyJobs.map(job => (
+                     <button 
+                       key={job.id} 
+                       onClick={() => importCVFromHistory(job.cv_text)}
+                       className="w-full text-left p-2 hover:bg-blue-50 border-b last:border-0 text-xs flex justify-between items-center group"
+                     >
+                       <span className="font-bold truncate max-w-[180px]">{job.company}</span>
+                       <span className="text-[10px] text-gray-400 group-hover:text-blue-600">{job.role}</span>
+                     </button>
+                   ))
+                 )}
+               </div>
+             </div>
+           )}
+
+           {/* ZONA DE VINCULACIÓN (Target Job) */}
+           <div className="bg-slate-800 rounded p-2 border border-slate-700">
+              {targetJob ? (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2 text-green-400 text-xs font-bold uppercase tracking-wider">
+                    <Briefcase size={14}/> Editando para:
+                  </div>
+                  <div className="font-bold text-sm truncate">{targetJob.company}</div>
+                  <div className="flex gap-2 mt-1">
+                    <button onClick={handlePrint} className="flex-1 bg-white text-slate-900 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1 hover:bg-slate-100">
+                      <Download size={14}/> PDF
+                    </button>
+                    {targetJob.status !== 'Aplicado' && (
+                      <button onClick={handleSaveAndApply} className="flex-1 bg-green-600 text-white py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1 hover:bg-green-700 animate-pulse hover:animate-none">
+                        <CheckCircle size={14}/> Guardar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                   <select className="w-full bg-slate-900 border border-slate-600 rounded text-xs p-1.5 text-white" onChange={(e) => { const j = jobs.find(x => x.id === e.target.value); if(j) setTargetJob(j); }} defaultValue="">
+                     <option value="" disabled>-- Vincular Oportunidad --</option>
+                     {pendingJobs.map(j => <option key={j.id} value={j.id}>{j.company}</option>)}
+                   </select>
+                   <button onClick={handlePrint} className="w-full bg-blue-600 hover:bg-blue-700 py-1.5 rounded text-xs font-bold mt-1 flex items-center justify-center gap-2"><Printer size={14}/> PDF Genérico</button>
+                </div>
+              )}
+           </div>
         </div>
 
         {/* TABS */}
-        <div className="flex border-b sticky top-[60px] bg-white z-10">
+        <div className="flex border-b sticky top-[180px] bg-white z-20"> {/* Ajustado top para el nuevo boton */}
           <button onClick={() => setActiveTab('content')} className={`flex-1 py-3 text-xs font-bold uppercase flex items-center justify-center gap-2 ${activeTab === 'content' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400'}`}><LayoutTemplate size={14}/> Contenido</button>
           <button onClick={() => setActiveTab('design')} className={`flex-1 py-3 text-xs font-bold uppercase flex items-center justify-center gap-2 ${activeTab === 'design' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400'}`}><Settings size={14}/> Diseño</button>
-          <button onClick={() => setActiveTab('ai')} className={`flex-1 py-3 text-xs font-bold uppercase flex items-center justify-center gap-2 ${activeTab === 'ai' ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50' : 'text-gray-400'}`}><Bot size={14}/> IA Config</button>
         </div>
 
         <div className="p-6 space-y-8 pb-20">
-          
-          {/* === TAB: IA CONFIG === */}
-          {activeTab === 'ai' && (
-            <div className="space-y-6 animate-fadeIn">
-              <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
-                <h3 className="text-xs font-bold text-purple-800 uppercase mb-4 flex items-center gap-2"><Settings size={14}/> Configuración del Cerebro</h3>
-                
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Tu API Key de Gemini</label>
-                    <input type="password" value={aiConfig.apiKey} onChange={(e) => setAiConfig({...aiConfig, apiKey: e.target.value})} className="w-full border p-2 rounded text-xs" placeholder="Pega aquí tu clave (AIza...)" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Tu Contexto Maestro (Drive Doc)</label>
-                    <textarea value={aiConfig.context} onChange={(e) => setAiConfig({...aiConfig, context: e.target.value})} className="w-full border p-2 rounded text-xs h-32" placeholder="Copia y pega aquí TODO el contenido de tu documento de Google Drive con tu perfil, logros e historia..." />
-                  </div>
-                  <button onClick={handleSaveAiConfig} className="w-full bg-slate-800 text-white py-2 rounded text-xs font-bold hover:bg-slate-700">Guardar Configuración</button>
-                </div>
-              </div>
-
-              <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                <h3 className="text-xs font-bold text-gray-800 uppercase mb-4 flex items-center gap-2"><Sparkles size={14}/> Generador de Adaptación</h3>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Descripción de la Oferta (Job Description)</label>
-                  <textarea value={aiConfig.jobDescription} onChange={(e) => setAiConfig({...aiConfig, jobDescription: e.target.value})} className="w-full border p-2 rounded text-xs h-32 mb-3" placeholder="Pega aquí la descripción del puesto..." />
-                  
-                  <button 
-                    onClick={handleGenerateCV} 
-                    disabled={isGenerating}
-                    className={`w-full py-3 rounded text-sm font-bold flex items-center justify-center gap-2 shadow-lg transition-all text-white
-                      ${isGenerating ? 'bg-purple-300 cursor-wait' : 'bg-purple-600 hover:bg-purple-700 hover:scale-[1.02]'}`}
-                  >
-                    {isGenerating ? 'Analizando y Redactando...' : <><Bot size={18}/> Generar CV Adaptado</>}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* === TAB: CONTENIDO === */}
           {activeTab === 'content' && (
             <>
@@ -195,7 +333,8 @@ export default function CVBuilder() {
                 
                 <label className="block text-[10px] text-gray-400 uppercase font-bold mt-2">Resumen Perfil (Barra Lateral)</label>
                 <textarea name="summary" placeholder="Perfil profesional..." value={cv.personal.summary} onChange={handlePersonalChange} className="w-full border p-2 rounded text-sm h-24" />
-                
+                <p className="text-[10px] text-gray-400">Tip: Usa **negrita** para resaltar y guiones - para listas.</p>
+
                 <div className="grid grid-cols-2 gap-2 text-xs mt-2">
                   <input name="email" placeholder="Email" value={cv.personal.email} onChange={handlePersonalChange} className="border p-2 rounded" />
                   <input name="phone" placeholder="Teléfono" value={cv.personal.phone} onChange={handlePersonalChange} className="border p-2 rounded" />
@@ -218,7 +357,7 @@ export default function CVBuilder() {
                         <input placeholder="Empresa" value={exp.company} onChange={(e) => updateItem('experience', exp.id, 'company', e.target.value)} className="bg-white border p-1 rounded text-xs" />
                         <input placeholder="Fechas" value={exp.date} onChange={(e) => updateItem('experience', exp.id, 'date', e.target.value)} className="bg-white border p-1 rounded text-xs text-right" />
                     </div>
-                    <textarea placeholder="Logros..." value={exp.description} onChange={(e) => updateItem('experience', exp.id, 'description', e.target.value)} className="w-full bg-white border p-1 rounded text-xs h-20 resize-y" />
+                    <textarea placeholder="Logros... (Usa ** para negrita y - para lista)" value={exp.description} onChange={(e) => updateItem('experience', exp.id, 'description', e.target.value)} className="w-full bg-white border p-1 rounded text-xs h-20 resize-y" />
                   </div>
                 ))}
               </section>
@@ -300,7 +439,10 @@ export default function CVBuilder() {
               <div className="space-y-8 flex-1">
                 <div className={debugClass}>
                   <h3 className="font-bold uppercase tracking-wider mb-3 pb-1 text-xs border-b border-white/30 text-white/90 flex items-center gap-2"><LayoutTemplate size={12}/> Perfil</h3>
-                  <p className="text-[10px] leading-relaxed text-white/90 text-justify whitespace-pre-line">{cv.personal.summary}</p>
+                  <RichText 
+                    text={cv.personal.summary} 
+                    className="text-[10px] leading-relaxed text-white/90 text-justify"
+                  />
                 </div>
                 <div className={debugClass}>
                   <h3 className="font-bold uppercase tracking-wider mb-3 pb-1 text-xs border-b border-white/30 text-white/90">Contacto</h3>
@@ -347,7 +489,11 @@ export default function CVBuilder() {
                         <span className="text-[10px] font-bold px-2 py-1 rounded bg-slate-100 text-slate-500 whitespace-nowrap">{exp.date}</span>
                       </div>
                       <p className="font-bold mb-2" style={{ color: cv.themeColor, fontSize: `${design.companySize}px` }}>{exp.company}</p>
-                      <p className="whitespace-pre-line text-slate-600" style={{ fontSize: `${design.textSize}px`, lineHeight: design.lineHeight }}>{exp.description}</p>
+                      <RichText 
+                        text={exp.description} 
+                        className="text-slate-600"
+                        style={{ fontSize: `${design.textSize}px`, lineHeight: design.lineHeight }}
+                      />
                     </div>
                   ))}
                 </div>

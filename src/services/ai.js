@@ -1,56 +1,71 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
 export const generateCVContent = async (apiKey, userContext, jobDescription) => {
+  // 1. Validaciones básicas
   if (!apiKey) throw new Error("Falta la API Key de Gemini");
   if (!userContext) throw new Error("Falta tu Contexto Profesional");
   if (!jobDescription) throw new Error("Falta la descripción de la oferta");
 
-  const genAI = new GoogleGenerativeAI(apiKey);
-  
-  // CAMBIO AQUÍ: Usamos 'gemini-pro' que es el modelo estándar universal
-  const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+  // 2. Configuración con el modelo CORRECTO detectado
+  // Usamos 'gemini-2.0-flash' que está en tu lista permitida
+  const TARGET_MODEL = "gemini-1.5-flash";
+  const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${TARGET_MODEL}:generateContent?key=${apiKey}`;
 
-  const prompt = `
+  // 3. El Prompt (Instrucciones)
+  const promptText = `
     ACTÚA COMO: Un experto redactor de CVs y reclutador senior.
+    OBJETIVO: Adaptar mi perfil para una oferta.
     
-    TU OBJETIVO: Adaptar mi perfil profesional para una oferta de trabajo específica.
-    
-    INFORMACIÓN DE CONTEXTO (MI PERFIL):
-    "${userContext}"
+    MI PERFIL (CONTEXTO):
+    ${userContext}
     
     OFERTA DE TRABAJO:
-    "${jobDescription}"
+    ${jobDescription}
     
-    INSTRUCCIONES:
-    1. Analiza mi perfil y la oferta.
-    2. Reescribe mi "Resumen/Perfil" para que encaje con la oferta, usando palabras clave de la misma.
-    3. Selecciona o adapta 1 experiencia laboral más relevante, destacando logros que importen para esta oferta.
-    4. Devuelve la respuesta EXCLUSIVAMENTE en formato JSON válido (sin markdown, sin comillas extra al inicio o final).
-    
-    FORMATO JSON ESPERADO:
+    INSTRUCCIONES DE SALIDA:
+    Devuelve SOLAMENTE un objeto JSON válido. No uses Markdown. No uses bloques de código.
+    El JSON debe tener esta estructura exacta:
     {
-      "summary": "Texto del nuevo perfil...",
+      "summary": "Redacta un perfil profesional de 3-4 líneas enfocado en la oferta, usando keywords de la misma.",
       "experience": {
-        "role": "Cargo adaptado",
-        "company": "Empresa (usar una de mi historial)",
-        "date": "Fechas",
-        "description": "Descripción adaptada con logros..."
+        "role": "El cargo de la oferta (o tu cargo actual adaptado)",
+        "company": "Nombre de mi empresa más reciente o relevante",
+        "date": "Fechas originales",
+        "description": "3-4 bullets points con logros cuantificables adaptados a lo que pide la oferta."
       },
       "skills": ["Skill1", "Skill2", "Skill3", "Skill4"]
     }
   `;
 
+  // 4. La Llamada
   try {
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
+    const response = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: promptText }] }]
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error?.message || `Error ${response.status}`);
+    }
+
+    const data = await response.json();
     
-    const jsonString = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    
-    return JSON.parse(jsonString);
+    // Verificación de seguridad
+    if (!data.candidates || data.candidates.length === 0) {
+      throw new Error("La IA no generó respuesta.");
+    }
+
+    const candidate = data.candidates[0].content.parts[0].text;
+
+    // Limpieza de seguridad (Quitar ```json y ``` si la IA los pone)
+    const cleanJson = candidate.replace(/```json/g, '').replace(/```/g, '').trim();
+
+    return JSON.parse(cleanJson);
+
   } catch (error) {
-    console.error("Error IA:", error);
-    // Mensaje de error más amigable
-    throw new Error(`Error de IA: ${error.message}. Verifica tu API Key.`);
+    console.error("❌ Error IA:", error);
+    throw new Error(`Fallo al generar CV: ${error.message}`);
   }
 };
