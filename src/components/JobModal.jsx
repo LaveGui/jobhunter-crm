@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Save, Linkedin, Link as LinkIcon, UserPlus, MessageSquare, Clock, Heart, FileText, Send, Palette, Building2 } from 'lucide-react';
+import { 
+  X, Save, Linkedin, Link as LinkIcon, UserPlus, Clock, Heart, 
+  FileText, Send, Palette, Building2, Phone, Mail, MessageSquare, 
+  StickyNote, Mic
+} from 'lucide-react';
 
 export default function JobModal({ job, isOpen, onClose, onSave }) {
   const navigate = useNavigate();
@@ -11,8 +15,14 @@ export default function JobModal({ job, isOpen, onClose, onSave }) {
   });
 
   const [activeTab, setActiveTab] = useState('details'); 
-  const [newContact, setNewContact] = useState({ name: '', linkedin: '', role: 'Recruiter' });
-  const [newMessage, setNewMessage] = useState('');
+  
+  // ESTADO PARA CONTACTOS
+  const [newContact, setNewContact] = useState({ name: '', role: 'Recruiter', linkedin: '', email: '', phone: '' });
+  
+  // ESTADO PARA BITÁCORA INTELIGENTE
+  const [logType, setLogType] = useState('note'); // note | message | call | email
+  const [logContact, setLogContact] = useState(''); // Nombre del contacto vinculado
+  const [logMessage, setLogMessage] = useState('');
 
   useEffect(() => {
     if (job) {
@@ -35,10 +45,11 @@ export default function JobModal({ job, isOpen, onClose, onSave }) {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  // --- LÓGICA CONTACTOS ---
   const addContact = () => {
     if (!newContact.name) return;
     setFormData({ ...formData, contacts: [...formData.contacts, newContact] });
-    setNewContact({ name: '', linkedin: '', role: 'Recruiter' });
+    setNewContact({ name: '', role: 'Recruiter', linkedin: '', email: '', phone: '' });
   };
 
   const removeContact = (index) => {
@@ -47,26 +58,43 @@ export default function JobModal({ job, isOpen, onClose, onSave }) {
     setFormData({ ...formData, contacts: updated });
   };
 
-  const logActivity = (type) => {
-    const log = {
+  // --- LÓGICA BITÁCORA ---
+  const handleLogSubmit = () => {
+    if (!logMessage) return;
+
+    let iconType = '📝';
+    if (logType === 'message') iconType = '👔';
+    if (logType === 'call') iconType = '📞';
+    if (logType === 'email') iconType = '📧';
+
+    const newLog = {
       date: new Date().toLocaleString('es-ES'),
-      type: type, 
-      text: type === 'message' ? `Mensaje: ${newMessage}` : 'Actividad registrada'
+      type: logType,
+      text: logMessage,
+      contact: logContact, // Guardamos con quién fue
+      icon: iconType
     };
-    if (type === 'message') {
-      if(!newMessage) return;
-      setNewMessage('');
-    }
-    setFormData({ ...formData, activity_log: [log, ...formData.activity_log] });
+
+    setFormData({ ...formData, activity_log: [newLog, ...formData.activity_log] });
+    
+    // Reset
+    setLogMessage('');
+    setLogType('note');
+    setLogContact('');
   };
 
   const markAsApplied = () => {
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const today = new Date().toISOString().split('T')[0];
     setFormData({
       ...formData,
       status: 'Aplicado',
       date_applied: today,
-      activity_log: [{ date: new Date().toLocaleString('es-ES'), type: 'apply', text: `✅ CV Enviado` }, ...formData.activity_log]
+      activity_log: [{ 
+        date: new Date().toLocaleString('es-ES'), 
+        type: 'apply', 
+        text: '✅ CV Enviado y postulación realizada',
+        icon: '🚀'
+      }, ...formData.activity_log]
     });
   };
 
@@ -153,54 +181,32 @@ export default function JobModal({ job, isOpen, onClose, onSave }) {
           </button>
         </div>
 
-        {/* CONTENIDO */}
+        {/* CONTENIDO SCROLLABLE */}
         <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
           
           {/* TAB 1: DETALLES */}
           {activeTab === 'details' && (
             <div className="space-y-5 animate-fadeIn">
-              
-              {/* BLOQUE EMPRESA Y LINK (AQUÍ ESTABA EL BUG VISUAL) */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Empresa</label>
                   <div className="relative group">
                     <Building2 className="absolute left-3 top-2.5 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={16}/>
-                    {/* SOLUCIÓN: pl-10 añade espacio a la izquierda para el icono */}
-                    <input 
-                      name="company" 
-                      value={formData.company} 
-                      onChange={handleChange} 
-                      className="w-full border border-slate-300 rounded-lg p-2 pl-10 text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-bold" 
-                      placeholder="Nombre de la empresa"
-                    />
+                    <input name="company" value={formData.company} onChange={handleChange} className="w-full border border-slate-300 rounded-lg p-2 pl-10 text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-bold" placeholder="Nombre de la empresa"/>
                   </div>
                 </div>
                 <div>
                   <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Enlace Oferta</label>
                   <div className="relative group">
                     <LinkIcon className="absolute left-3 top-2.5 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={16}/>
-                    {/* SOLUCIÓN: pl-10 aquí también */}
-                    <input 
-                      name="job_link" 
-                      value={formData.job_link} 
-                      onChange={handleChange} 
-                      className="w-full border border-slate-300 rounded-lg p-2 pl-10 text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-blue-600 underline" 
-                      placeholder="https://linkedin.com/jobs/..." 
-                    />
+                    <input name="job_link" value={formData.job_link} onChange={handleChange} className="w-full border border-slate-300 rounded-lg p-2 pl-10 text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-blue-600 underline" placeholder="https://..." />
                   </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Salario</label>
-                  <input name="salary" value={formData.salary} onChange={handleChange} placeholder="Ej: 45k - 55k" className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:border-blue-500 outline-none"/>
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Modalidad</label>
-                  <input name="location_type" value={formData.location_type} onChange={handleChange} placeholder="Híbrido, Remoto..." className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:border-blue-500 outline-none"/>
-                </div>
+                <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Salario</label><input name="salary" value={formData.salary} onChange={handleChange} placeholder="Ej: 45k - 55k" className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:border-blue-500 outline-none"/></div>
+                <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Modalidad</label><input name="location_type" value={formData.location_type} onChange={handleChange} placeholder="Híbrido, Remoto..." className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:border-blue-500 outline-none"/></div>
               </div>
 
               <div>
@@ -208,7 +214,6 @@ export default function JobModal({ job, isOpen, onClose, onSave }) {
                 <textarea name="description" value={formData.description} onChange={handleChange} className="w-full border border-slate-300 rounded-lg p-3 text-sm h-32 focus:border-blue-500 outline-none font-mono text-slate-600 leading-relaxed" placeholder="Pega aquí la descripción completa del puesto..."></textarea>
               </div>
 
-              {/* ZONA DE ACCIÓN: CV */}
               <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex flex-col gap-3">
                  <div className="flex justify-between items-center">
                     <h3 className="font-bold text-indigo-900 text-sm flex items-center gap-2"><Palette size={16}/> Adaptación de CV</h3>
@@ -216,114 +221,149 @@ export default function JobModal({ job, isOpen, onClose, onSave }) {
                  </div>
                  
                  <div className="flex gap-3">
-                    <button 
-                      type="button" 
-                      onClick={handleGoToCV}
-                      className="flex-1 bg-white border border-indigo-200 text-indigo-700 py-2.5 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-50 transition-colors flex items-center justify-center gap-2"
-                    >
+                    <button type="button" onClick={handleGoToCV} className="flex-1 bg-white border border-indigo-200 text-indigo-700 py-2.5 rounded-lg text-sm font-bold shadow-sm hover:bg-indigo-50 transition-colors flex items-center justify-center gap-2">
                       {formData.id ? '🖊️ Diseñar CV en Studio' : '💾 Guarda primero para editar CV'}
                     </button>
                     {!formData.date_applied && (
-                      <button 
-                        type="button" 
-                        onClick={markAsApplied}
-                        className="bg-indigo-600 text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow-md hover:bg-indigo-700 transition-transform active:scale-95"
-                      >
+                      <button type="button" onClick={markAsApplied} className="bg-indigo-600 text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow-md hover:bg-indigo-700 transition-transform active:scale-95">
                         Marcar Enviado
                       </button>
                     )}
                  </div>
-
-                 {/* Textarea CV Text (Read Only ish) */}
                  <div className="relative">
-                    <textarea 
-                      name="cv_text" 
-                      value={formData.cv_text} 
-                      onChange={handleChange} 
-                      placeholder="Aquí aparecerá el texto de tu CV automáticamente cuando lo guardes desde el Studio..." 
-                      className="w-full bg-white border border-indigo-200 rounded-lg p-3 text-xs h-20 text-slate-500 focus:border-indigo-400 outline-none"
-                    />
-                    <div className="absolute top-2 right-2 text-[10px] text-indigo-300 font-bold uppercase pointer-events-none">CV TEXT MEMORY</div>
+                    <textarea name="cv_text" value={formData.cv_text} onChange={handleChange} placeholder="Aquí aparecerá el texto de tu CV automáticamente..." className="w-full bg-white border border-indigo-200 rounded-lg p-3 text-xs h-20 text-slate-500 focus:border-indigo-400 outline-none"/>
                  </div>
               </div>
             </div>
           )}
 
-          {/* TAB 2: CONTACTOS (Sin cambios funcionales por ahora) */}
+          {/* TAB 2: CONTACTOS PRO (Con Email y Teléfono) */}
           {activeTab === 'contacts' && (
             <div className="space-y-4 animate-fadeIn">
               <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                <h4 className="text-xs font-bold text-slate-400 uppercase mb-3">Añadir Nuevo Contacto</h4>
-                <div className="flex flex-col gap-3">
-                  <div className="flex gap-3">
-                     <input placeholder="Nombre" value={newContact.name} onChange={(e) => setNewContact({...newContact, name: e.target.value})} className="flex-1 border p-2 rounded text-sm outline-none focus:border-blue-500"/>
+                <h4 className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2"><UserPlus size={14}/> Añadir Nuevo Contacto</h4>
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                     <input placeholder="Nombre Completo" value={newContact.name} onChange={(e) => setNewContact({...newContact, name: e.target.value})} className="border p-2 rounded text-sm outline-none focus:border-blue-500"/>
                      <select value={newContact.role} onChange={(e) => setNewContact({...newContact, role: e.target.value})} className="border p-2 rounded text-sm bg-white outline-none focus:border-blue-500">
                         <option>Recruiter</option>
                         <option>Hiring Manager</option>
                         <option>Team Lead</option>
-                        <option>Peer</option>
+                        <option>Peer / Colega</option>
+                        <option>Referido</option>
                      </select>
-                  </div>
-                  <div className="flex gap-3">
-                     <input placeholder="LinkedIn URL" value={newContact.linkedin} onChange={(e) => setNewContact({...newContact, linkedin: e.target.value})} className="flex-1 border p-2 rounded text-sm outline-none focus:border-blue-500"/>
-                     <button type="button" onClick={addContact} className="bg-slate-900 text-white px-4 py-2 rounded text-sm font-bold hover:bg-slate-800 transition-colors flex items-center gap-2">
-                        <UserPlus size={16}/> Añadir
-                     </button>
-                  </div>
                 </div>
+                <div className="grid grid-cols-3 gap-3 mb-3">
+                     <input placeholder="LinkedIn URL" value={newContact.linkedin} onChange={(e) => setNewContact({...newContact, linkedin: e.target.value})} className="border p-2 rounded text-sm outline-none focus:border-blue-500"/>
+                     <input placeholder="Email (Opcional)" value={newContact.email} onChange={(e) => setNewContact({...newContact, email: e.target.value})} className="border p-2 rounded text-sm outline-none focus:border-blue-500"/>
+                     <input placeholder="Teléfono (Opcional)" value={newContact.phone} onChange={(e) => setNewContact({...newContact, phone: e.target.value})} className="border p-2 rounded text-sm outline-none focus:border-blue-500"/>
+                </div>
+                <button type="button" onClick={addContact} className="w-full bg-slate-900 text-white px-4 py-2 rounded text-sm font-bold hover:bg-slate-800 transition-colors flex items-center justify-center gap-2">
+                    <UserPlus size={16}/> Guardar Contacto
+                </button>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {formData.contacts.map((contact, idx) => (
-                  <div key={idx} className="flex justify-between items-center bg-white p-3 rounded-lg border border-slate-100 hover:border-blue-200 hover:shadow-sm transition-all group">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-sm group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
-                        {contact.name.charAt(0)}
-                      </div>
-                      <div>
-                        <p className="font-bold text-slate-800">{contact.name}</p>
-                        <div className="flex items-center gap-2 text-xs text-slate-500">
-                           <span className="bg-slate-100 px-2 py-0.5 rounded">{contact.role}</span>
-                           {contact.linkedin && <a href={contact.linkedin} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline flex items-center gap-1"><Linkedin size={12}/> LinkedIn</a>}
+                  <div key={idx} className="bg-white p-3 rounded-lg border border-slate-100 hover:border-blue-200 hover:shadow-md transition-all group relative">
+                    <div className="flex justify-between items-start">
+                      <div className="flex gap-3">
+                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-sm group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                          {contact.name.charAt(0)}
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-800">{contact.name}</p>
+                          <p className="text-xs text-slate-500 bg-slate-50 inline-block px-1.5 rounded mb-1">{contact.role}</p>
+                          
+                          <div className="flex gap-3 text-xs text-slate-400 mt-1">
+                             {contact.email && <span className="flex items-center gap-1 hover:text-slate-600"><Mail size={12}/> {contact.email}</span>}
+                             {contact.phone && <span className="flex items-center gap-1 hover:text-slate-600"><Phone size={12}/> {contact.phone}</span>}
+                          </div>
                         </div>
                       </div>
+                      <div className="flex gap-2">
+                        {contact.linkedin && <a href={contact.linkedin} target="_blank" rel="noreferrer" className="text-blue-600 hover:bg-blue-50 p-1.5 rounded"><Linkedin size={16}/></a>}
+                        <button type="button" onClick={() => removeContact(idx)} className="text-slate-300 hover:text-red-500 p-1.5"><X size={16}/></button>
+                      </div>
                     </div>
-                    <button type="button" onClick={() => removeContact(idx)} className="text-slate-300 hover:text-red-500 p-2"><X size={18}/></button>
                   </div>
                 ))}
-                {formData.contacts.length === 0 && <div className="text-center py-8 text-slate-400 text-sm italic">No hay contactos guardados. Investiga en LinkedIn 🕵️‍♂️</div>}
+                {formData.contacts.length === 0 && <div className="text-center py-8 text-slate-400 text-sm italic">Sin contactos.</div>}
               </div>
             </div>
           )}
 
-          {/* TAB 3: BITÁCORA */}
+          {/* TAB 3: BITÁCORA INTELIGENTE */}
           {activeTab === 'activity' && (
             <div className="space-y-4 animate-fadeIn">
-              <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex gap-2">
-                 <input 
-                    className="flex-1 bg-transparent p-2 text-sm outline-none placeholder-slate-400" 
-                    placeholder="Escribe una nota rápida o actualización..." 
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && logActivity('message')}
-                 />
-                 <button onClick={() => logActivity('message')} className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-lg transition-colors"><Send size={18}/></button>
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                 <h4 className="text-xs font-bold text-slate-400 uppercase mb-3">Registrar Nueva Actividad</h4>
+                 
+                 {/* SELECTOR DE TIPO */}
+                 <div className="flex gap-2 mb-3">
+                    <button onClick={() => setLogType('note')} className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 border transition-colors ${logType === 'note' ? 'bg-slate-100 border-slate-300 text-slate-800' : 'border-slate-100 text-slate-400 hover:bg-slate-50'}`}><StickyNote size={14}/> Nota</button>
+                    <button onClick={() => setLogType('message')} className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 border transition-colors ${logType === 'message' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'border-slate-100 text-slate-400 hover:bg-slate-50'}`}><MessageSquare size={14}/> Mensaje</button>
+                    <button onClick={() => setLogType('call')} className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 border transition-colors ${logType === 'call' ? 'bg-green-50 border-green-200 text-green-700' : 'border-slate-100 text-slate-400 hover:bg-slate-50'}`}><Phone size={14}/> Llamada</button>
+                    <button onClick={() => setLogType('email')} className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 border transition-colors ${logType === 'email' ? 'bg-yellow-50 border-yellow-200 text-yellow-700' : 'border-slate-100 text-slate-400 hover:bg-slate-50'}`}><Mail size={14}/> Email</button>
+                 </div>
+
+                 {/* VINCULADOR DE CONTACTO */}
+                 {(logType !== 'note') && (
+                   <div className="mb-3">
+                      <select 
+                        value={logContact} 
+                        onChange={(e) => setLogContact(e.target.value)} 
+                        className="w-full text-xs p-2 rounded border border-slate-200 bg-slate-50 outline-none focus:border-blue-400 text-slate-600"
+                      >
+                        <option value="">-- Vincular con un Contacto (Opcional) --</option>
+                        {formData.contacts.map((c, i) => (
+                          <option key={i} value={c.name}>{c.name} ({c.role})</option>
+                        ))}
+                      </select>
+                   </div>
+                 )}
+
+                 {/* TEXTO Y BOTÓN */}
+                 <div className="flex gap-2">
+                   <input 
+                      className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm outline-none focus:border-blue-500 transition-colors" 
+                      placeholder={logType === 'call' ? "Resumen de la llamada..." : "Detalles..."}
+                      value={logMessage}
+                      onChange={(e) => setLogMessage(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleLogSubmit()}
+                   />
+                   <button onClick={handleLogSubmit} className="bg-slate-900 hover:bg-slate-800 text-white p-2.5 rounded-lg transition-colors"><Send size={18}/></button>
+                 </div>
               </div>
 
-              <div className="relative pl-6 border-l-2 border-slate-200 space-y-6 mt-6 ml-2">
+              {/* LISTA DE ACTIVIDADES */}
+              <div className="relative pl-6 border-l-2 border-slate-200 space-y-4 mt-6 ml-2 pb-4">
                  {formData.activity_log.map((log, idx) => (
                    <div key={idx} className="relative group">
-                      <div className={`absolute -left-[31px] top-0 w-4 h-4 rounded-full border-2 border-white ring-1 ring-slate-200 shadow-sm
-                        ${log.type === 'apply' ? 'bg-green-500' : 'bg-blue-500'}`}></div>
+                      <div className={`absolute -left-[32px] top-1 w-8 h-8 rounded-full border-4 border-slate-50 flex items-center justify-center text-xs shadow-sm bg-white z-10
+                        ${log.type === 'apply' ? 'text-green-600' : 'text-slate-500'}`}>
+                        {log.icon || (log.type === 'apply' ? '🚀' : '📝')}
+                      </div>
+                      
                       <div className="flex items-baseline justify-between mb-1">
-                         <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">{log.type === 'apply' ? 'Postulación' : 'Nota'}</span>
+                         <div className="flex items-center gap-2">
+                           <span className={`text-xs font-bold uppercase tracking-wide px-2 py-0.5 rounded
+                             ${log.type === 'message' ? 'bg-blue-100 text-blue-700' : 
+                               log.type === 'call' ? 'bg-green-100 text-green-700' : 
+                               log.type === 'email' ? 'bg-yellow-100 text-yellow-700' : 
+                               log.type === 'apply' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                             {log.type === 'apply' ? 'Hito' : log.type.toUpperCase()}
+                           </span>
+                           {log.contact && <span className="text-xs text-slate-500 font-medium flex items-center gap-1"><UserPlus size={10}/> con {log.contact}</span>}
+                         </div>
                          <span className="text-[10px] text-slate-400">{log.date}</span>
                       </div>
-                      <div className="bg-white p-3 rounded-lg border border-slate-100 shadow-sm text-sm text-slate-700 group-hover:border-blue-200 transition-colors">
+                      
+                      <div className="bg-white p-3 rounded-lg border border-slate-100 shadow-sm text-sm text-slate-700">
                          {log.text}
                       </div>
                    </div>
                  ))}
+                 {formData.activity_log.length === 0 && <p className="text-gray-400 text-sm italic">Sin actividad reciente.</p>}
               </div>
             </div>
           )}
