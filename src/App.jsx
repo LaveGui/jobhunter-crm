@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import { Plus, Search, Building2, MapPin, DollarSign, Heart, Calendar, ArrowDownWideNarrow, ArrowUpAZ, Activity } from 'lucide-react'; // Iconos nuevos
+import { 
+  Plus, Search, Building2, MapPin, Euro, Heart, 
+  CalendarCheck, Clock, UserX, Activity, ArrowDownWideNarrow 
+} from 'lucide-react'; 
 import useGoogleSheets from './hooks/useGoogleSheets';
 import JobModal from './components/JobModal';
 import { Link } from "react-router-dom";
@@ -15,10 +18,12 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState("");
   
   // ESTADO PARA ORDENAMIENTO
-  const [sortBy, setSortBy] = useState('last_updated'); // 'last_updated' | 'enthusiasm' | 'alpha'
+  const [sortBy, setSortBy] = useState('last_updated'); 
 
-  // Función auxiliar para formatear fecha (Ej: "17 feb")
-  const formatDate = (isoString) => {
+  // --- HELPERS ---
+
+  // Formatear fecha corta (ej: "17 feb")
+  const formatDateShort = (isoString) => {
     if (!isoString) return null;
     try {
       const date = new Date(isoString);
@@ -26,6 +31,36 @@ export default function App() {
     } catch (e) {
       return isoString;
     }
+  };
+
+  // Calcular días inactivo
+  const getDaysInactive = (dateString) => {
+    if (!dateString) return 0;
+    const lastDate = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now - lastDate);
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+  };
+
+  // Contar contactos de forma segura
+  const getContactCount = (job) => {
+    if (!job.contacts) return 0;
+    if (Array.isArray(job.contacts)) return job.contacts.length;
+    try {
+      const parsed = JSON.parse(job.contacts);
+      return Array.isArray(parsed) ? parsed.length : 0;
+    } catch (e) {
+      return 0;
+    }
+  };
+
+  // Formatear Salario con puntos de miles (SOLUCIÓN 1)
+  const formatSalary = (salary) => {
+    if (!salary) return '';
+    // 1. Limpiamos todo lo que no sea número o guión (para rangos)
+    const clean = String(salary).replace(/[^\d-]/g, '');
+    // 2. Añadimos puntos de mil a los grupos de números
+    return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   };
 
   // Función para ordenar trabajos
@@ -38,10 +73,9 @@ export default function App() {
         return (Number(b.enthusiasm) || 0) - (Number(a.enthusiasm) || 0);
       }
       if (sortBy === 'last_updated') {
-        // Prioridad a la fecha de última actualización o creación
         const dateA = new Date(a.last_updated || a.created_at || 0);
         const dateB = new Date(b.last_updated || b.created_at || 0);
-        return dateB - dateA; // Más reciente primero
+        return dateB - dateA; 
       }
       return 0;
     });
@@ -52,50 +86,39 @@ export default function App() {
     if (jobs.length > 0) {
       const newCols = { 'Prospecto': [], 'Aplicado': [], 'Entrevista': [], 'Oferta': [], 'Descartado': [] };
       
-      // 1. Filtrar por búsqueda
       const filteredJobs = jobs.filter(job => 
         job.company.toLowerCase().includes(searchTerm.toLowerCase()) || 
         job.title.toLowerCase().includes(searchTerm.toLowerCase())
       );
 
-      // 2. Distribuir en columnas
       filteredJobs.forEach(job => {
         if (newCols[job.status]) {
           newCols[job.status].push(job);
         } else {
-          newCols['Prospecto'].push(job); // Fallback
+          newCols['Prospecto'].push(job); 
         }
       });
 
-      // 3. Ordenar cada columna independientemente
       Object.keys(newCols).forEach(col => {
         newCols[col] = sortJobs(newCols[col]);
       });
 
       setColumns(newCols);
     }
-  }, [jobs, searchTerm, sortBy]); // Se ejecuta cuando cambian jobs, búsqueda u orden
+  }, [jobs, searchTerm, sortBy]); 
 
   const onDragEnd = (result) => {
     if (!result.destination) return;
     const { source, destination } = result;
 
-    // Si soltamos en la misma columna y misma posición, no hacemos nada
     if (source.droppableId === destination.droppableId && source.index === destination.index) return;
 
-    // Clonamos las columnas actuales para manipulación optimista
     const sourceCol = [...columns[source.droppableId]];
     const destCol = [...columns[destination.droppableId]];
     
-    // Obtenemos el job movido
     const [movedJob] = sourceCol.splice(source.index, 1);
     const newStatus = destination.droppableId;
 
-    // Actualizamos localmente (Optimistic UI)
-    // Nota: Al soltar, React volverá a re-ordenar según el criterio seleccionado (sortBy)
-    // esto puede hacer que la tarjeta "salte" a su posición ordenada, lo cual es correcto en este modelo.
-    
-    // Insertamos en destino (aunque el useEffect luego lo reordenará)
     if (source.droppableId === destination.droppableId) {
         sourceCol.splice(destination.index, 0, movedJob);
         setColumns({ ...columns, [source.droppableId]: sourceCol });
@@ -104,10 +127,9 @@ export default function App() {
         setColumns({ ...columns, [source.droppableId]: sourceCol, [destination.droppableId]: destCol });
     }
 
-    // Lógica de actualización de datos
     let extraUpdates = {};
     if (newStatus === 'Aplicado' && !movedJob.date_applied) {
-       extraUpdates.date_applied = new Date().toISOString().split('T')[0]; // Formato YYYY-MM-DD para Excel
+       extraUpdates.date_applied = new Date().toISOString().split('T')[0]; 
     }
 
     updateJob({ 
@@ -128,17 +150,10 @@ export default function App() {
     
     if (action === 'create') {
       await addJob(payload);
+      setIsModalOpen(false); 
     } else {
       await updateJob(payload);
     }
-  };
-
-  const getDaysInactive = (dateString) => {
-    if (!dateString) return 0;
-    const lastDate = new Date(dateString);
-    const now = new Date();
-    const diffTime = Math.abs(now - lastDate);
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
   };
 
   return (
@@ -165,10 +180,9 @@ export default function App() {
         </div>
       </header>
 
-      {/* BARRA DE HERRAMIENTAS (BUSCADOR + ORDENAR) */}
+      {/* BARRA DE HERRAMIENTAS */}
       <div className="bg-white border-b border-slate-200 p-3 shadow-sm shrink-0 z-10">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row gap-4 items-center justify-between">
-            {/* Buscador */}
             <div className="relative w-full md:w-96">
                 <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
                 <input 
@@ -180,27 +194,11 @@ export default function App() {
                 />
             </div>
 
-            {/* Ordenamiento */}
             <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto">
                 <span className="text-xs font-bold text-slate-400 uppercase whitespace-nowrap">Ordenar por:</span>
-                <button 
-                    onClick={() => setSortBy('last_updated')}
-                    className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 transition-colors whitespace-nowrap ${sortBy === 'last_updated' ? 'bg-blue-100 text-blue-700' : 'text-slate-500 hover:bg-slate-100'}`}
-                >
-                    <Activity size={14}/> Actividad
-                </button>
-                <button 
-                    onClick={() => setSortBy('enthusiasm')}
-                    className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 transition-colors whitespace-nowrap ${sortBy === 'enthusiasm' ? 'bg-yellow-100 text-yellow-700' : 'text-slate-500 hover:bg-slate-100'}`}
-                >
-                    <Heart size={14}/> Interés
-                </button>
-                <button 
-                    onClick={() => setSortBy('alpha')}
-                    className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 transition-colors whitespace-nowrap ${sortBy === 'alpha' ? 'bg-purple-100 text-purple-700' : 'text-slate-500 hover:bg-slate-100'}`}
-                >
-                    <ArrowDownWideNarrow size={14}/> A-Z
-                </button>
+                <button onClick={() => setSortBy('last_updated')} className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 transition-colors whitespace-nowrap ${sortBy === 'last_updated' ? 'bg-blue-100 text-blue-700' : 'text-slate-500 hover:bg-slate-100'}`}><Activity size={14}/> Actividad</button>
+                <button onClick={() => setSortBy('enthusiasm')} className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 transition-colors whitespace-nowrap ${sortBy === 'enthusiasm' ? 'bg-yellow-100 text-yellow-700' : 'text-slate-500 hover:bg-slate-100'}`}><Heart size={14}/> Interés</button>
+                <button onClick={() => setSortBy('alpha')} className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 transition-colors whitespace-nowrap ${sortBy === 'alpha' ? 'bg-purple-100 text-purple-700' : 'text-slate-500 hover:bg-slate-100'}`}><ArrowDownWideNarrow size={14}/> A-Z</button>
             </div>
         </div>
       </div>
@@ -221,7 +219,6 @@ export default function App() {
                         {...provided.droppableProps}
                         className="bg-slate-200/60 rounded-xl p-3 w-80 flex flex-col h-full border border-slate-300/50 backdrop-blur-sm"
                     >
-                        {/* Column Header */}
                         <div className="flex justify-between items-center mb-3 px-1 shrink-0">
                             <div className="flex items-center gap-2">
                                 <h2 className="font-bold text-slate-700 uppercase text-xs tracking-wider">{colId}</h2>
@@ -231,7 +228,6 @@ export default function App() {
                             </div>
                         </div>
 
-                        {/* Cards Container */}
                         <div className="flex-1 overflow-y-auto pr-1 space-y-3 custom-scrollbar">
                         {columns[colId].map((job, index) => (
                             <Draggable key={job.id} draggableId={String(job.id)} index={index}>
@@ -240,49 +236,70 @@ export default function App() {
                                 ref={provided.innerRef}
                                 {...provided.draggableProps}
                                 {...provided.dragHandleProps}
+                                // SOLUCIÓN 2: Pasamos los estilos nativos explícitamente para evitar saltos
+                                style={{ ...provided.draggableProps.style }}
                                 onClick={() => { setCurrentJob(job); setIsModalOpen(true); }}
-                                className={`bg-white p-4 rounded-lg border transition-all cursor-pointer group relative hover:border-blue-400 hover:shadow-md
-                                    ${snapshot.isDragging ? 'shadow-2xl rotate-2 ring-2 ring-blue-500 z-50' : 'shadow-sm border-slate-200'}
+                                // SOLUCIÓN 2 (Cont.): Quitamos 'rotate-2' para que no se descuadre el puntero
+                                className={`bg-white p-4 rounded-lg border transition-all cursor-pointer group relative hover:shadow-md
+                                    ${snapshot.isDragging ? 'shadow-2xl ring-2 ring-blue-500 z-50' : 'shadow-sm border-slate-200'}
+                                    ${Number(job.enthusiasm) === 5 ? 'border-l-4 border-l-yellow-400' : 'hover:border-blue-400'} 
                                 `}
                                 >
-                                {/* Indicador de Inactividad (Solo si > 7 días) */}
-                                {getDaysInactive(job.last_updated) > 7 && (
-                                    <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white animate-pulse" title="Sin actividad reciente (>7 días)"></div>
+                                {Number(job.enthusiasm) === 5 && (
+                                    <div className="absolute top-0 right-0 w-full h-1 bg-gradient-to-r from-transparent via-yellow-200 to-transparent opacity-50"></div>
                                 )}
 
                                 {/* Card Content */}
-                                <h3 className="font-bold text-slate-800 mb-0.5 leading-snug text-sm">{job.title}</h3>
-                                <p className="text-blue-600 text-xs font-bold flex items-center gap-1 mb-3">
+                                <h3 className="font-bold text-slate-800 mb-0.5 leading-snug text-sm line-clamp-2">{job.title}</h3>
+                                <p className="text-blue-600 text-xs font-bold flex items-center gap-1 mb-3 truncate">
                                     <Building2 size={10}/> {job.company}
                                 </p>
 
                                 {/* Metadata Footer */}
                                 <div className="space-y-2">
                                     <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
-                                        <div className="flex items-center gap-1 bg-slate-50 px-1.5 py-0.5 rounded">
-                                            <MapPin size={10}/> {job.location_type || 'Híbrido'}
+                                        <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-1 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
+                                                <MapPin size={10}/> {job.location_type || 'Híbrido'}
+                                            </div>
+                                            {/* ALERTA SIN CONTACTOS */}
+                                            {getContactCount(job) === 0 && (
+                                                <div className="text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100 flex items-center gap-1" title="¡No tienes contactos guardados!">
+                                                    <UserX size={10}/> <span>0</span>
+                                                </div>
+                                            )}
                                         </div>
+                                        
+                                        {/* SALARIO EN EUROS CON SEPARADOR DE MILES */}
                                         {job.salary && (
-                                            <div className="flex items-center gap-1 text-green-700 bg-green-50 px-1.5 py-0.5 rounded">
-                                            <DollarSign size={10}/> {job.salary}
+                                            <div className="flex items-center gap-1 text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
+                                                <Euro size={10}/> {formatSalary(job.salary)}
                                             </div>
                                         )}
                                     </div>
                                     
-                                    <div className="flex items-center justify-between pt-2 border-t border-slate-50">
-                                        <div className="flex gap-0.5">
-                                            {[...Array(5)].map((_, i) => (
-                                            <Heart 
-                                                key={i} 
-                                                size={10} 
-                                                className={i < (Number(job.enthusiasm) || 0) ? "text-yellow-400 fill-yellow-400" : "text-slate-200 fill-slate-200"}
-                                            />
-                                            ))}
+                                    <div className="flex flex-col gap-1.5 pt-2 border-t border-slate-50">
+                                        <div className="flex justify-between items-center">
+                                            <div className="flex gap-0.5">
+                                                {[...Array(5)].map((_, i) => (
+                                                <Heart 
+                                                    key={i} 
+                                                    size={10} 
+                                                    className={i < (Number(job.enthusiasm) || 0) ? "text-yellow-400 fill-yellow-400" : "text-slate-200 fill-slate-200"}
+                                                />
+                                                ))}
+                                            </div>
+                                            {/* ÚLTIMA ACTIVIDAD */}
+                                            <div className="text-[10px] text-slate-400 flex items-center gap-1" title="Última actualización">
+                                                <Clock size={10}/> {formatDateShort(job.last_updated)}
+                                            </div>
                                         </div>
+
+                                        {/* FECHA DE APLICACIÓN */}
                                         {job.date_applied && (
-                                            <span className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
-                                                <Calendar size={10}/> {formatDate(job.date_applied)}
-                                            </span>
+                                            <div className="bg-green-50 text-green-700 px-2 py-1 rounded border border-green-100 text-[10px] font-bold flex items-center justify-center gap-1.5 mt-1">
+                                                <CalendarCheck size={10}/> Postulado: {formatDateShort(job.date_applied)}
+                                            </div>
                                         )}
                                     </div>
                                 </div>
