@@ -1,54 +1,70 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react'; // Importamos useRef
 import { useNavigate } from 'react-router-dom';
 import { 
   X, Save, Linkedin, Link as LinkIcon, UserPlus, Clock, Heart, 
   FileText, Send, Palette, Building2, Phone, Mail, MessageSquare, 
-  StickyNote, Euro, Check 
-} from 'lucide-react'; // <--- Añadido icono Euro y Check
+  StickyNote, Euro, Check, AlertCircle 
+} from 'lucide-react';
 
 export default function JobModal({ job, isOpen, onClose, onSave }) {
   const navigate = useNavigate();
+  
+  // ESTADO DEL FORMULARIO
   const [formData, setFormData] = useState({
     company: '', title: '', status: 'Prospecto', 
     salary: '', location_type: 'Híbrido', job_link: '', description: '',
     enthusiasm: 3, contacts: [], activity_log: [], cv_text: '', date_applied: ''
   });
 
+  // ESTADO PARA COMPARACIÓN (DIRTY STATE)
+  const [originalData, setOriginalData] = useState(null); // La "Foto" original
+  const [hasChanges, setHasChanges] = useState(false);    // ¿Hay cambios?
+
   const [activeTab, setActiveTab] = useState('details'); 
-  const [isSaving, setIsSaving] = useState(false); // Estado para feedback de guardado
+  const [isSaving, setIsSaving] = useState(false);
   
-  // ESTADO PARA CONTACTOS
   const [newContact, setNewContact] = useState({ name: '', role: 'Recruiter', linkedin: '', email: '', phone: '' });
-  
-  // ESTADO PARA BITÁCORA INTELIGENTE
   const [logType, setLogType] = useState('note');
   const [logContact, setLogContact] = useState('');
   const [logMessage, setLogMessage] = useState('');
 
+  // AL ABRIR EL MODAL: Cargar datos y tomar la "Foto"
   useEffect(() => {
-    if (job) {
-      setFormData({
-        ...job,
-        contacts: typeof job.contacts === 'string' ? JSON.parse(job.contacts || '[]') : (job.contacts || []),
-        activity_log: typeof job.activity_log === 'string' ? JSON.parse(job.activity_log || '[]') : (job.activity_log || []),
-        enthusiasm: Number(job.enthusiasm) || 3
-      });
-    } else {
-      setFormData({
-        company: '', title: '', status: 'Prospecto', 
-        salary: '', location_type: 'Híbrido', job_link: '', description: '',
-        enthusiasm: 3, contacts: [], activity_log: [], cv_text: '', date_applied: ''
-      });
+    if (isOpen) {
+      let initialData;
+      if (job) {
+        initialData = {
+          ...job,
+          contacts: typeof job.contacts === 'string' ? JSON.parse(job.contacts || '[]') : (job.contacts || []),
+          activity_log: typeof job.activity_log === 'string' ? JSON.parse(job.activity_log || '[]') : (job.activity_log || []),
+          enthusiasm: Number(job.enthusiasm) || 3
+        };
+      } else {
+        initialData = {
+          company: '', title: '', status: 'Prospecto', 
+          salary: '', location_type: 'Híbrido', job_link: '', description: '',
+          enthusiasm: 3, contacts: [], activity_log: [], cv_text: '', date_applied: ''
+        };
+      }
+      setFormData(initialData);
+      setOriginalData(initialData); // Guardamos la referencia original
+      setHasChanges(false);         // Reseteamos estado sucio
     }
   }, [job, isOpen]);
 
-  // --- FUNCIÓN HELPER PARA FECHAS LINDAS ---
+  // DETECTOR DE CAMBIOS (Efecto que compara en tiempo real)
+  useEffect(() => {
+    if (originalData) {
+      const isDirty = JSON.stringify(formData) !== JSON.stringify(originalData);
+      setHasChanges(isDirty);
+    }
+  }, [formData, originalData]);
+
+  // --- FUNCIÓN HELPER FECHAS ---
   const formatDateNice = (dateString) => {
     if (!dateString) return '';
-    // Intentamos crear fecha, si falla devolvemos string original
     try {
       const date = new Date(dateString);
-      // Opciones: "17 de febrero de 2026"
       return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
     } catch (e) {
       return dateString;
@@ -57,6 +73,17 @@ export default function JobModal({ job, isOpen, onClose, onSave }) {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  // --- GUARDIÁN DE SALIDA ---
+  const handleCloseAttempt = () => {
+    if (hasChanges) {
+      if (window.confirm('⚠️ Tienes cambios sin guardar.\n\n¿Seguro que quieres cerrar y perder los cambios?')) {
+        onClose();
+      }
+    } else {
+      onClose();
+    }
   };
 
   // --- LÓGICA CONTACTOS ---
@@ -82,7 +109,7 @@ export default function JobModal({ job, isOpen, onClose, onSave }) {
     if (logType === 'email') iconType = '📧';
 
     const newLog = {
-      date: new Date().toLocaleString('es-ES'), // Fecha con hora para el log
+      date: new Date().toLocaleString('es-ES'),
       type: logType,
       text: logMessage,
       contact: logContact,
@@ -90,21 +117,19 @@ export default function JobModal({ job, isOpen, onClose, onSave }) {
     };
 
     setFormData({ ...formData, activity_log: [newLog, ...formData.activity_log] });
-    
     setLogMessage('');
     setLogType('note');
     setLogContact('');
   };
 
   const markAsApplied = () => {
-    const todayISO = new Date().toISOString().split('T')[0]; // Para la BD (YYYY-MM-DD)
-    const todayLog = new Date().toLocaleString('es-ES'); // Para el log visual
+    const todayISO = new Date().toISOString().split('T')[0];
+    const todayLog = new Date().toLocaleString('es-ES');
 
     setFormData({
       ...formData,
       status: 'Aplicado',
       date_applied: todayISO,
-      // Añadimos el log explícitamente al array
       activity_log: [{ 
         date: todayLog, 
         type: 'apply', 
@@ -115,11 +140,17 @@ export default function JobModal({ job, isOpen, onClose, onSave }) {
   };
 
   const handleGoToCV = () => {
+    // Si hay cambios sin guardar, avisamos antes de irnos
+    if (hasChanges) {
+       if(!window.confirm("Tienes cambios sin guardar en la oferta. ¿Quieres ir al CV Studio igualmente? (Se perderán los cambios de esta ficha)")) return;
+    }
     navigate('/cv', { state: { jobContext: formData } });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!hasChanges) return; // Si no hay cambios, no hacemos nada
+
     setIsSaving(true);
     
     const payload = {
@@ -129,33 +160,26 @@ export default function JobModal({ job, isOpen, onClose, onSave }) {
       last_updated: new Date().toISOString()
     };
     
-    // Simulamos un pequeño delay o esperamos a la promesa real si onSave fuera async
     await onSave(payload);
     
+    // Una vez guardado, la "Foto Original" pasa a ser lo que acabamos de guardar
+    setOriginalData(formData); 
+    setHasChanges(false); // El botón vuelve a gris
     setIsSaving(false);
   };
 
-  // --- RENDERIZADO CONDICIONAL DE LOGS (SOLUCIÓN RETROACTIVA) ---
-  // Si hay fecha de aplicación pero no hay log, lo mostramos virtualmente
   const renderLogs = () => {
     let logsToShow = [...formData.activity_log];
-    
-    // Verificamos si ya existe un log de tipo 'apply'
     const hasApplyLog = logsToShow.some(log => log.type === 'apply');
-    
-    // Si NO existe log, pero SÍ hay fecha de aplicación, mostramos el log "virtual" al final
     if (!hasApplyLog && formData.date_applied) {
       logsToShow.push({
-        date: formatDateNice(formData.date_applied), // Usamos la fecha guardada
+        date: formatDateNice(formData.date_applied),
         type: 'apply',
         text: '✅ CV Enviado (Registro histórico)',
         icon: '🚀',
-        isVirtual: true // Flag interno
+        isVirtual: true
       });
-      // Ordenamos por fecha (opcional, asumiendo que el histórico es más antiguo)
-      // Pero como activity_log suele ser LIFO (último arriba), el histórico debería ir al final.
     }
-
     return logsToShow;
   };
 
@@ -198,7 +222,7 @@ export default function JobModal({ job, isOpen, onClose, onSave }) {
            </div>
            
            <div className="flex flex-col items-end gap-2">
-             <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors"><X size={24}/></button>
+             <button onClick={handleCloseAttempt} className="text-slate-400 hover:text-white transition-colors"><X size={24}/></button>
              <div className="flex gap-1 bg-white/10 p-1 rounded-full">
                 {[1, 2, 3, 4, 5].map((level) => (
                   <button 
@@ -254,7 +278,6 @@ export default function JobModal({ job, isOpen, onClose, onSave }) {
                 <div>
                   <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Salario (€)</label>
                   <div className="relative group">
-                    {/* ICONO EURO AÑADIDO */}
                     <Euro className="absolute left-3 top-2.5 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={16}/>
                     <input 
                       name="salary" 
@@ -279,7 +302,6 @@ export default function JobModal({ job, isOpen, onClose, onSave }) {
               <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex flex-col gap-3">
                  <div className="flex justify-between items-center">
                     <h3 className="font-bold text-indigo-900 text-sm flex items-center gap-2"><Palette size={16}/> Adaptación de CV</h3>
-                    {/* FECHA FORMATEADA AQUÍ */}
                     {formData.date_applied && <span className="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded font-bold uppercase tracking-wide">Postulado: {formatDateNice(formData.date_applied)}</span>}
                  </div>
                  
@@ -361,7 +383,6 @@ export default function JobModal({ job, isOpen, onClose, onSave }) {
               <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                  <h4 className="text-xs font-bold text-slate-400 uppercase mb-3">Registrar Nueva Actividad</h4>
                  
-                 {/* SELECTOR DE TIPO */}
                  <div className="flex gap-2 mb-3">
                     <button onClick={() => setLogType('note')} className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 border transition-colors ${logType === 'note' ? 'bg-slate-100 border-slate-300 text-slate-800' : 'border-slate-100 text-slate-400 hover:bg-slate-50'}`}><StickyNote size={14}/> Nota</button>
                     <button onClick={() => setLogType('message')} className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 border transition-colors ${logType === 'message' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'border-slate-100 text-slate-400 hover:bg-slate-50'}`}><MessageSquare size={14}/> Mensaje</button>
@@ -369,7 +390,6 @@ export default function JobModal({ job, isOpen, onClose, onSave }) {
                     <button onClick={() => setLogType('email')} className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 border transition-colors ${logType === 'email' ? 'bg-yellow-50 border-yellow-200 text-yellow-700' : 'border-slate-100 text-slate-400 hover:bg-slate-50'}`}><Mail size={14}/> Email</button>
                  </div>
 
-                 {/* VINCULADOR DE CONTACTO */}
                  {(logType !== 'note') && (
                    <div className="mb-3">
                       <select 
@@ -385,7 +405,6 @@ export default function JobModal({ job, isOpen, onClose, onSave }) {
                    </div>
                  )}
 
-                 {/* TEXTO Y BOTÓN */}
                  <div className="flex gap-2">
                    <input 
                       className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm outline-none focus:border-blue-500 transition-colors" 
@@ -398,7 +417,6 @@ export default function JobModal({ job, isOpen, onClose, onSave }) {
                  </div>
               </div>
 
-              {/* LISTA DE ACTIVIDADES (Con renderLogs para mostrar históricos) */}
               <div className="relative pl-6 border-l-2 border-slate-200 space-y-4 mt-6 ml-2 pb-4">
                  {renderLogs().map((log, idx) => (
                    <div key={idx} className={`relative group ${log.isVirtual ? 'opacity-70' : ''}`}>
@@ -434,12 +452,18 @@ export default function JobModal({ job, isOpen, onClose, onSave }) {
 
         {/* FOOTER */}
         <div className="p-4 border-t bg-white flex justify-end shrink-0 gap-3">
-          <button onClick={onClose} className="px-4 py-2 text-slate-500 hover:text-slate-800 font-bold text-sm transition-colors">Cancelar</button>
+          <button onClick={handleCloseAttempt} className="px-4 py-2 text-slate-500 hover:text-slate-800 font-bold text-sm transition-colors">Cancelar</button>
+          
           <button 
             onClick={handleSubmit} 
-            disabled={isSaving}
+            disabled={!hasChanges && !isSaving} // Desactivado si no hay cambios
             className={`px-6 py-2 rounded-lg font-bold text-sm shadow-lg transition-all flex items-center gap-2
-              ${isSaving ? 'bg-green-600 text-white cursor-wait' : 'bg-slate-900 hover:bg-slate-800 text-white transform active:scale-95 hover:shadow-xl'}`}
+              ${!hasChanges 
+                ? 'bg-slate-100 text-slate-400 shadow-none cursor-not-allowed' // ESTILO GRIS (SIN CAMBIOS)
+                : isSaving 
+                  ? 'bg-green-600 text-white cursor-wait' // ESTILO GUARDANDO
+                  : 'bg-slate-900 hover:bg-slate-800 text-white transform active:scale-95 hover:shadow-xl' // ESTILO ACTIVO (CON CAMBIOS)
+              }`}
           >
              {isSaving ? <><Check size={18} className="animate-bounce"/> ¡Guardado!</> : <><Save size={18}/> Guardar Cambios</>}
           </button>

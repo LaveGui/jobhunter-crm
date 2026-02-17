@@ -131,7 +131,6 @@ export default function App() {
     } else {
       await updateJob(payload);
     }
-    setIsModalOpen(false);
   };
 
   const getDaysInactive = (dateString) => {
