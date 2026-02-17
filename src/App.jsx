@@ -2,14 +2,15 @@ import { useState, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { 
   Plus, Search, Building2, MapPin, Euro, Heart, 
-  CalendarCheck, Clock, UserX, Activity, ArrowDownWideNarrow, Zap, Settings 
+  CalendarCheck, Clock, UserX, Activity, ArrowDownWideNarrow, Zap, Settings, BarChart3
 } from 'lucide-react'; 
 import useGoogleSheets from './hooks/useGoogleSheets';
 import JobModal from './components/JobModal';
-import StrategyModal from './components/StrategyModal'; // <--- IMPORT NUEVO
+import StrategyModal from './components/StrategyModal';
+import StatsModal from './components/StatsModal';
 import { Link } from "react-router-dom";
 import { calculatePendingTasks } from './utils/taskEngine';
-import { PLAYBOOK as DEFAULT_PLAYBOOK } from './utils/playbook'; // <--- IMPORT PARA DEFAULT
+import { PLAYBOOK as DEFAULT_PLAYBOOK } from './utils/playbook';
 
 export default function App() {
   const { jobs, loading, error, addJob, updateJob } = useGoogleSheets();
@@ -23,36 +24,35 @@ export default function App() {
   // ESTADOS TAREAS Y ESTRATEGIA
   const [pendingTasks, setPendingTasks] = useState([]);
   const [showTaskPanel, setShowTaskPanel] = useState(false);
-  const [showStrategyModal, setShowStrategyModal] = useState(false); // <--- ESTADO MODAL ESTRATEGIA
-  const [activePlaybook, setActivePlaybook] = useState(DEFAULT_PLAYBOOK); // <--- ESTADO PLAYBOOK ACTIVO
+  const [showStrategyModal, setShowStrategyModal] = useState(false);
+  const [showStats, setShowStats] = useState(false); // Estado para el modal de métricas
+  const [activePlaybook, setActivePlaybook] = useState(DEFAULT_PLAYBOOK);
 
   const [modalInitialTab, setModalInitialTab] = useState('details');
   const [modalInitialLogType, setModalInitialLogType] = useState('note');
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState('last_updated'); 
 
-  // --- CARGAR ESTRATEGIA AL INICIO ---
+  // --- CARGAR ESTRATEGIA ---
   useEffect(() => {
-    const savedPlaybook = localStorage.getItem('jobhunter_playbook');
-    if (savedPlaybook) {
-      setActivePlaybook(JSON.parse(savedPlaybook));
-    }
+    const saved = localStorage.getItem('jobhunter_playbook');
+    if (saved) setActivePlaybook(JSON.parse(saved));
   }, []);
 
-  // --- CALCULAR TAREAS (Usando activePlaybook) ---
+  // --- CALCULAR TAREAS ---
   useEffect(() => {
     if (jobs.length > 0) {
-      // Pasamos el playbook activo al motor
       const tasks = calculatePendingTasks(jobs, activePlaybook);
       setPendingTasks(tasks);
     }
-  }, [jobs, activePlaybook]); // Recalcular si cambian jobs O la estrategia
+  }, [jobs, activePlaybook]);
 
-  // --- HELPERS (SIN CAMBIOS) ---
+  // --- HELPERS ---
   const formatDateShort = (isoString) => {
     if (!isoString) return null;
     try { const date = new Date(isoString); return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }); } catch (e) { return isoString; }
   };
+  
   const getDaysInactive = (dateString) => {
     if (!dateString) return 0;
     const lastDate = new Date(dateString);
@@ -60,30 +60,52 @@ export default function App() {
     const diffTime = Math.abs(now - lastDate);
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
   };
+  
   const getContactCount = (job) => {
     if (!job.contacts) return 0;
     if (Array.isArray(job.contacts)) return job.contacts.length;
     try { const parsed = JSON.parse(job.contacts); return Array.isArray(parsed) ? parsed.length : 0; } catch (e) { return 0; }
   };
+  
   const formatSalary = (salary) => {
     if (!salary) return '';
     const clean = String(salary).replace(/[^\d-]/g, '');
     return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   };
+  
+  // FIX: Ordenamiento defensivo (company || '')
   const sortJobs = (jobsList) => {
     return [...jobsList].sort((a, b) => {
-      if (sortBy === 'alpha') return a.company.localeCompare(b.company);
+      if (sortBy === 'alpha') return (a.company || '').localeCompare(b.company || '');
       if (sortBy === 'enthusiasm') return (Number(b.enthusiasm) || 0) - (Number(a.enthusiasm) || 0);
       if (sortBy === 'last_updated') { const dateA = new Date(a.last_updated || a.created_at || 0); const dateB = new Date(b.last_updated || b.created_at || 0); return dateB - dateA; }
       return 0;
     });
   };
-  // ------------------------------------
+
+  // --- SINCRONIZACIÓN DE COLUMNAS (Con Fix Defensivo) ---
+  useEffect(() => {
+    if (jobs.length > 0) {
+      const newCols = { 'Prospecto': [], 'Aplicado': [], 'Entrevista': [], 'Oferta': [], 'Descartado': [] };
+      
+      const filteredJobs = jobs.filter(job => 
+        (job.company || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+        (job.title || '').toLowerCase().includes(searchTerm.toLowerCase())
+      );
+
+      filteredJobs.forEach(job => {
+        if (newCols[job.status]) newCols[job.status].push(job);
+        else newCols['Prospecto'].push(job);
+      });
+
+      Object.keys(newCols).forEach(col => { newCols[col] = sortJobs(newCols[col]); });
+      setColumns(newCols);
+    }
+  }, [jobs, searchTerm, sortBy]); 
 
   // --- HANDLERS ---
   const handleStrategySave = (newRules) => {
-    setActivePlaybook(newRules); // Actualizamos estado local
-    // El useEffect de arriba detectará el cambio y recalculará las tareas automáticamente
+    setActivePlaybook(newRules);
   };
 
   const handleOpenJobFromTask = (task) => {
@@ -149,6 +171,16 @@ export default function App() {
             <h1 className="text-xl font-bold tracking-tight">JobHunter CRM</h1>
           </div>
           <div className="flex gap-3">
+            
+            {/* BOTÓN MÉTRICAS */}
+            <button 
+               onClick={() => setShowStats(true)}
+               className="p-2 rounded-lg bg-slate-800 text-blue-400 hover:bg-slate-700 hover:text-white transition-colors border border-slate-700"
+               title="Ver Estadísticas"
+            >
+              <BarChart3 size={20} />
+            </button>
+
             {/* BOTÓN TAREAS */}
             <button 
                onClick={() => setShowTaskPanel(!showTaskPanel)}
@@ -158,7 +190,7 @@ export default function App() {
               <Zap size={16} className={showTaskPanel ? 'fill-slate-900' : 'fill-yellow-400 text-yellow-400'}/>
               Tareas
               {pendingTasks.length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full border-2 border-slate-900">
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full border-2 border-slate-900 animate-bounce">
                   {pendingTasks.length}
                 </span>
               )}
@@ -182,9 +214,8 @@ export default function App() {
                 <h3 className="font-bold text-lg flex items-center gap-2"><Zap className="text-yellow-400 fill-yellow-400" size={20}/> Tareas para Hoy</h3>
                 <div className="flex gap-4 items-center">
                     <span className="text-xs text-slate-400 uppercase font-bold tracking-wider">{pendingTasks.length} Acciones</span>
-                    {/* BOTÓN CONFIGURACIÓN */}
-                    <button onClick={() => setShowStrategyModal(true)} className="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-700" title="Configurar Estrategia">
-                        <Settings size={18}/>
+                    <button onClick={() => setShowStrategyModal(true)} className="text-slate-400 hover:text-white p-1.5 rounded hover:bg-slate-700 flex items-center gap-1 text-xs font-bold bg-slate-900/50 border border-slate-600" title="Configurar Estrategia">
+                        <Settings size={14}/> Configurar
                     </button>
                 </div>
              </div>
@@ -196,11 +227,11 @@ export default function App() {
                  {pendingTasks.map(task => (
                    <div key={task.id} className="bg-slate-700 p-3 rounded-lg border border-slate-600 hover:border-yellow-400 transition-colors flex justify-between items-center group">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded bg-slate-600 flex items-center justify-center font-bold text-xl text-slate-400 group-hover:text-white">
+                        <div className="w-10 h-10 rounded bg-slate-600 flex items-center justify-center font-bold text-xl text-slate-400 group-hover:text-white uppercase">
                           {task.logo}
                         </div>
                         <div>
-                          <h4 className="font-bold text-yellow-400 text-sm">{task.company}</h4>
+                          <h4 className="font-bold text-yellow-400 text-sm truncate max-w-[150px]">{task.company}</h4>
                           <p className="text-xs text-white font-medium">{task.taskLabel}</p>
                           <p className="text-[10px] text-slate-400 mt-0.5">{task.daysOverdue > 0 ? `Hace ${task.daysOverdue} días` : 'Para hoy'}</p>
                         </div>
@@ -216,7 +247,7 @@ export default function App() {
         </div>
       )}
 
-      {/* BARRA DE HERRAMIENTAS (Igual) */}
+      {/* BARRA DE HERRAMIENTAS */}
       <div className="bg-white border-b border-slate-200 p-3 shadow-sm shrink-0 z-10">
          <div className="max-w-7xl mx-auto flex flex-col md:flex-row gap-4 items-center justify-between">
             <div className="relative w-full md:w-96">
@@ -293,12 +324,21 @@ export default function App() {
         )}
       </main>
 
-      {/* MODAL CONFIGURACIÓN ESTRATEGIA (NUEVO) */}
+      {/* MODAL CONFIGURACIÓN ESTRATEGIA */}
       {showStrategyModal && (
         <StrategyModal 
           isOpen={showStrategyModal} 
           onClose={() => setShowStrategyModal(false)}
           onSave={handleStrategySave}
+        />
+      )}
+
+      {/* MODAL ESTADÍSTICAS */}
+      {showStats && (
+        <StatsModal 
+          jobs={jobs} 
+          isOpen={showStats} 
+          onClose={() => setShowStats(false)} 
         />
       )}
 
