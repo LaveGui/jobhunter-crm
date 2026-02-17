@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { 
   Plus, Search, Building2, MapPin, Euro, Heart, 
-  CalendarCheck, Clock, UserX, Activity, ArrowDownWideNarrow, Zap 
-} from 'lucide-react'; // <--- Añadido icono Zap (Rayo) para tareas
+  CalendarCheck, Clock, UserX, Activity, ArrowDownWideNarrow, Zap, Settings 
+} from 'lucide-react'; 
 import useGoogleSheets from './hooks/useGoogleSheets';
 import JobModal from './components/JobModal';
+import StrategyModal from './components/StrategyModal'; // <--- IMPORT NUEVO
 import { Link } from "react-router-dom";
-import { calculatePendingTasks } from './utils/taskEngine'; // <--- Importamos el motor
+import { calculatePendingTasks } from './utils/taskEngine';
+import { PLAYBOOK as DEFAULT_PLAYBOOK } from './utils/playbook'; // <--- IMPORT PARA DEFAULT
 
 export default function App() {
   const { jobs, loading, error, addJob, updateJob } = useGoogleSheets();
@@ -18,21 +20,45 @@ export default function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentJob, setCurrentJob] = useState(null);
   
-  // ESTADOS PARA TAREAS
+  // ESTADOS TAREAS Y ESTRATEGIA
   const [pendingTasks, setPendingTasks] = useState([]);
   const [showTaskPanel, setShowTaskPanel] = useState(false);
-  const [modalInitialTab, setModalInitialTab] = useState('details'); // Para deep linking
-  const [modalInitialLogType, setModalInitialLogType] = useState('note');
+  const [showStrategyModal, setShowStrategyModal] = useState(false); // <--- ESTADO MODAL ESTRATEGIA
+  const [activePlaybook, setActivePlaybook] = useState(DEFAULT_PLAYBOOK); // <--- ESTADO PLAYBOOK ACTIVO
 
+  const [modalInitialTab, setModalInitialTab] = useState('details');
+  const [modalInitialLogType, setModalInitialLogType] = useState('note');
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState('last_updated'); 
 
-  // --- HELPERS (formatDateShort, getDaysInactive, getContactCount, formatSalary, sortJobs...) ---
-  // (Mantén los helpers que ya tenías en la versión anterior aquí)
-  // ... Copia los helpers anteriores ...
+  // --- CARGAR ESTRATEGIA AL INICIO ---
+  useEffect(() => {
+    const savedPlaybook = localStorage.getItem('jobhunter_playbook');
+    if (savedPlaybook) {
+      setActivePlaybook(JSON.parse(savedPlaybook));
+    }
+  }, []);
+
+  // --- CALCULAR TAREAS (Usando activePlaybook) ---
+  useEffect(() => {
+    if (jobs.length > 0) {
+      // Pasamos el playbook activo al motor
+      const tasks = calculatePendingTasks(jobs, activePlaybook);
+      setPendingTasks(tasks);
+    }
+  }, [jobs, activePlaybook]); // Recalcular si cambian jobs O la estrategia
+
+  // --- HELPERS (SIN CAMBIOS) ---
   const formatDateShort = (isoString) => {
     if (!isoString) return null;
     try { const date = new Date(isoString); return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }); } catch (e) { return isoString; }
+  };
+  const getDaysInactive = (dateString) => {
+    if (!dateString) return 0;
+    const lastDate = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now - lastDate);
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
   };
   const getContactCount = (job) => {
     if (!job.contacts) return 0;
@@ -52,40 +78,22 @@ export default function App() {
       return 0;
     });
   };
-
-  // --- EFECTOS ---
-
-  // 1. Calcular tareas cuando cambian los jobs
-  useEffect(() => {
-    if (jobs.length > 0) {
-      const tasks = calculatePendingTasks(jobs);
-      setPendingTasks(tasks);
-    }
-  }, [jobs]);
-
-  // 2. Organizar columnas (igual que antes)
-  useEffect(() => {
-    if (jobs.length > 0) {
-      const newCols = { 'Prospecto': [], 'Aplicado': [], 'Entrevista': [], 'Oferta': [], 'Descartado': [] };
-      const filteredJobs = jobs.filter(job => job.company.toLowerCase().includes(searchTerm.toLowerCase()) || job.title.toLowerCase().includes(searchTerm.toLowerCase()));
-      filteredJobs.forEach(job => {
-        if (newCols[job.status]) newCols[job.status].push(job);
-        else newCols['Prospecto'].push(job);
-      });
-      Object.keys(newCols).forEach(col => { newCols[col] = sortJobs(newCols[col]); });
-      setColumns(newCols);
-    }
-  }, [jobs, searchTerm, sortBy]); 
+  // ------------------------------------
 
   // --- HANDLERS ---
+  const handleStrategySave = (newRules) => {
+    setActivePlaybook(newRules); // Actualizamos estado local
+    // El useEffect de arriba detectará el cambio y recalculará las tareas automáticamente
+  };
+
   const handleOpenJobFromTask = (task) => {
     const job = jobs.find(j => j.id === task.jobId);
     if (job) {
       setCurrentJob(job);
-      setModalInitialTab('activity'); // Abrir directo en bitácora
-      setModalInitialLogType(task.actionType); // Preseleccionar tipo (mensaje, email...)
+      setModalInitialTab('activity'); 
+      setModalInitialLogType(task.actionType); 
       setIsModalOpen(true);
-      setShowTaskPanel(false); // Cerrar panel de tareas
+      setShowTaskPanel(false); 
     }
   };
 
@@ -103,7 +111,6 @@ export default function App() {
     setIsModalOpen(true);
   };
 
-  // onDragEnd y handleSaveJob (Igual que antes)
   const onDragEnd = (result) => {
      if (!result.destination) return;
      const { source, destination } = result;
@@ -142,7 +149,7 @@ export default function App() {
             <h1 className="text-xl font-bold tracking-tight">JobHunter CRM</h1>
           </div>
           <div className="flex gap-3">
-            {/* BOTÓN TAREAS (NUEVO) */}
+            {/* BOTÓN TAREAS */}
             <button 
                onClick={() => setShowTaskPanel(!showTaskPanel)}
                className={`relative px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-all 
@@ -160,23 +167,26 @@ export default function App() {
             <Link to="/cv" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-sm transition-colors shadow-lg shadow-blue-900/50">
               CV Studio
             </Link>
-            <button 
-              onClick={handleOpenNewJob}
-              className="bg-white text-slate-900 hover:bg-slate-100 px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-colors"
-            >
+            <button onClick={handleOpenNewJob} className="bg-white text-slate-900 hover:bg-slate-100 px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-colors">
               <Plus size={16} /> Nueva Oportunidad
             </button>
           </div>
         </div>
       </header>
 
-      {/* PANEL DE TAREAS (DESPLEGABLE) */}
+      {/* PANEL DE TAREAS */}
       {showTaskPanel && (
         <div className="bg-slate-800 text-white border-b border-slate-700 p-4 shadow-inner animate-in slide-in-from-top-2 duration-200 z-10 relative">
            <div className="max-w-3xl mx-auto">
              <div className="flex justify-between items-end mb-4 border-b border-slate-700 pb-2">
-                <h3 className="font-bold text-lg flex items-center gap-2"><Zap className="text-yellow-400 fill-yellow-400" size={20}/> Tareas de Seguimiento para Hoy</h3>
-                <span className="text-xs text-slate-400 uppercase font-bold tracking-wider">{pendingTasks.length} Acciones pendientes</span>
+                <h3 className="font-bold text-lg flex items-center gap-2"><Zap className="text-yellow-400 fill-yellow-400" size={20}/> Tareas para Hoy</h3>
+                <div className="flex gap-4 items-center">
+                    <span className="text-xs text-slate-400 uppercase font-bold tracking-wider">{pendingTasks.length} Acciones</span>
+                    {/* BOTÓN CONFIGURACIÓN */}
+                    <button onClick={() => setShowStrategyModal(true)} className="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-700" title="Configurar Estrategia">
+                        <Settings size={18}/>
+                    </button>
+                </div>
              </div>
              
              {pendingTasks.length === 0 ? (
@@ -195,10 +205,7 @@ export default function App() {
                           <p className="text-[10px] text-slate-400 mt-0.5">{task.daysOverdue > 0 ? `Hace ${task.daysOverdue} días` : 'Para hoy'}</p>
                         </div>
                       </div>
-                      <button 
-                        onClick={() => handleOpenJobFromTask(task)}
-                        className="bg-yellow-400 hover:bg-yellow-300 text-slate-900 px-3 py-1.5 rounded text-xs font-bold shadow-lg transform active:scale-95 transition-all"
-                      >
+                      <button onClick={() => handleOpenJobFromTask(task)} className="bg-yellow-400 hover:bg-yellow-300 text-slate-900 px-3 py-1.5 rounded text-xs font-bold shadow-lg transform active:scale-95 transition-all">
                         Gestionar
                       </button>
                    </div>
@@ -209,10 +216,8 @@ export default function App() {
         </div>
       )}
 
-      {/* BARRA DE HERRAMIENTAS (Igual que antes) */}
+      {/* BARRA DE HERRAMIENTAS (Igual) */}
       <div className="bg-white border-b border-slate-200 p-3 shadow-sm shrink-0 z-10">
-         {/* ... (Todo el contenido del buscador y filtros igual) ... */}
-         {/* Copia el bloque div con className="max-w-7xl..." de la versión anterior */}
          <div className="max-w-7xl mx-auto flex flex-col md:flex-row gap-4 items-center justify-between">
             <div className="relative w-full md:w-96">
                 <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
@@ -287,6 +292,15 @@ export default function App() {
             </DragDropContext>
         )}
       </main>
+
+      {/* MODAL CONFIGURACIÓN ESTRATEGIA (NUEVO) */}
+      {showStrategyModal && (
+        <StrategyModal 
+          isOpen={showStrategyModal} 
+          onClose={() => setShowStrategyModal(false)}
+          onSave={handleStrategySave}
+        />
+      )}
 
       {isModalOpen && (
         <JobModal 
