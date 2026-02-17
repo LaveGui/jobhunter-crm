@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { 
   X, Save, Linkedin, Link as LinkIcon, UserPlus, Clock, Heart, 
   FileText, Send, Palette, Building2, Phone, Mail, MessageSquare, 
-  StickyNote, Mic
-} from 'lucide-react';
+  StickyNote, Euro, Check 
+} from 'lucide-react'; // <--- Añadido icono Euro y Check
 
 export default function JobModal({ job, isOpen, onClose, onSave }) {
   const navigate = useNavigate();
@@ -15,13 +15,14 @@ export default function JobModal({ job, isOpen, onClose, onSave }) {
   });
 
   const [activeTab, setActiveTab] = useState('details'); 
+  const [isSaving, setIsSaving] = useState(false); // Estado para feedback de guardado
   
   // ESTADO PARA CONTACTOS
   const [newContact, setNewContact] = useState({ name: '', role: 'Recruiter', linkedin: '', email: '', phone: '' });
   
   // ESTADO PARA BITÁCORA INTELIGENTE
-  const [logType, setLogType] = useState('note'); // note | message | call | email
-  const [logContact, setLogContact] = useState(''); // Nombre del contacto vinculado
+  const [logType, setLogType] = useState('note');
+  const [logContact, setLogContact] = useState('');
   const [logMessage, setLogMessage] = useState('');
 
   useEffect(() => {
@@ -40,6 +41,19 @@ export default function JobModal({ job, isOpen, onClose, onSave }) {
       });
     }
   }, [job, isOpen]);
+
+  // --- FUNCIÓN HELPER PARA FECHAS LINDAS ---
+  const formatDateNice = (dateString) => {
+    if (!dateString) return '';
+    // Intentamos crear fecha, si falla devolvemos string original
+    try {
+      const date = new Date(dateString);
+      // Opciones: "17 de febrero de 2026"
+      return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+    } catch (e) {
+      return dateString;
+    }
+  };
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -68,29 +82,31 @@ export default function JobModal({ job, isOpen, onClose, onSave }) {
     if (logType === 'email') iconType = '📧';
 
     const newLog = {
-      date: new Date().toLocaleString('es-ES'),
+      date: new Date().toLocaleString('es-ES'), // Fecha con hora para el log
       type: logType,
       text: logMessage,
-      contact: logContact, // Guardamos con quién fue
+      contact: logContact,
       icon: iconType
     };
 
     setFormData({ ...formData, activity_log: [newLog, ...formData.activity_log] });
     
-    // Reset
     setLogMessage('');
     setLogType('note');
     setLogContact('');
   };
 
   const markAsApplied = () => {
-    const today = new Date().toISOString().split('T')[0];
+    const todayISO = new Date().toISOString().split('T')[0]; // Para la BD (YYYY-MM-DD)
+    const todayLog = new Date().toLocaleString('es-ES'); // Para el log visual
+
     setFormData({
       ...formData,
       status: 'Aplicado',
-      date_applied: today,
+      date_applied: todayISO,
+      // Añadimos el log explícitamente al array
       activity_log: [{ 
-        date: new Date().toLocaleString('es-ES'), 
+        date: todayLog, 
         type: 'apply', 
         text: '✅ CV Enviado y postulación realizada',
         icon: '🚀'
@@ -102,15 +118,45 @@ export default function JobModal({ job, isOpen, onClose, onSave }) {
     navigate('/cv', { state: { jobContext: formData } });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsSaving(true);
+    
     const payload = {
       ...formData,
       contacts: JSON.stringify(formData.contacts),
       activity_log: JSON.stringify(formData.activity_log),
       last_updated: new Date().toISOString()
     };
-    onSave(payload);
+    
+    // Simulamos un pequeño delay o esperamos a la promesa real si onSave fuera async
+    await onSave(payload);
+    
+    setIsSaving(false);
+  };
+
+  // --- RENDERIZADO CONDICIONAL DE LOGS (SOLUCIÓN RETROACTIVA) ---
+  // Si hay fecha de aplicación pero no hay log, lo mostramos virtualmente
+  const renderLogs = () => {
+    let logsToShow = [...formData.activity_log];
+    
+    // Verificamos si ya existe un log de tipo 'apply'
+    const hasApplyLog = logsToShow.some(log => log.type === 'apply');
+    
+    // Si NO existe log, pero SÍ hay fecha de aplicación, mostramos el log "virtual" al final
+    if (!hasApplyLog && formData.date_applied) {
+      logsToShow.push({
+        date: formatDateNice(formData.date_applied), // Usamos la fecha guardada
+        type: 'apply',
+        text: '✅ CV Enviado (Registro histórico)',
+        icon: '🚀',
+        isVirtual: true // Flag interno
+      });
+      // Ordenamos por fecha (opcional, asumiendo que el histórico es más antiguo)
+      // Pero como activity_log suele ser LIFO (último arriba), el histórico debería ir al final.
+    }
+
+    return logsToShow;
   };
 
   if (!isOpen) return null;
@@ -205,8 +251,24 @@ export default function JobModal({ job, isOpen, onClose, onSave }) {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Salario</label><input name="salary" value={formData.salary} onChange={handleChange} placeholder="Ej: 45k - 55k" className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:border-blue-500 outline-none"/></div>
-                <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Modalidad</label><input name="location_type" value={formData.location_type} onChange={handleChange} placeholder="Híbrido, Remoto..." className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:border-blue-500 outline-none"/></div>
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Salario (€)</label>
+                  <div className="relative group">
+                    {/* ICONO EURO AÑADIDO */}
+                    <Euro className="absolute left-3 top-2.5 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={16}/>
+                    <input 
+                      name="salary" 
+                      value={formData.salary} 
+                      onChange={handleChange} 
+                      placeholder="Ej: 45.000 € - 55.000 €" 
+                      className="w-full border border-slate-300 rounded-lg p-2 pl-10 text-sm focus:border-blue-500 outline-none transition-all"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Modalidad</label>
+                  <input name="location_type" value={formData.location_type} onChange={handleChange} placeholder="Híbrido, Remoto..." className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:border-blue-500 outline-none"/>
+                </div>
               </div>
 
               <div>
@@ -217,7 +279,8 @@ export default function JobModal({ job, isOpen, onClose, onSave }) {
               <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex flex-col gap-3">
                  <div className="flex justify-between items-center">
                     <h3 className="font-bold text-indigo-900 text-sm flex items-center gap-2"><Palette size={16}/> Adaptación de CV</h3>
-                    {formData.date_applied && <span className="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded font-bold uppercase tracking-wide">Postulado: {formData.date_applied}</span>}
+                    {/* FECHA FORMATEADA AQUÍ */}
+                    {formData.date_applied && <span className="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded font-bold uppercase tracking-wide">Postulado: {formatDateNice(formData.date_applied)}</span>}
                  </div>
                  
                  <div className="flex gap-3">
@@ -237,7 +300,7 @@ export default function JobModal({ job, isOpen, onClose, onSave }) {
             </div>
           )}
 
-          {/* TAB 2: CONTACTOS PRO (Con Email y Teléfono) */}
+          {/* TAB 2: CONTACTOS PRO */}
           {activeTab === 'contacts' && (
             <div className="space-y-4 animate-fadeIn">
               <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
@@ -335,10 +398,10 @@ export default function JobModal({ job, isOpen, onClose, onSave }) {
                  </div>
               </div>
 
-              {/* LISTA DE ACTIVIDADES */}
+              {/* LISTA DE ACTIVIDADES (Con renderLogs para mostrar históricos) */}
               <div className="relative pl-6 border-l-2 border-slate-200 space-y-4 mt-6 ml-2 pb-4">
-                 {formData.activity_log.map((log, idx) => (
-                   <div key={idx} className="relative group">
+                 {renderLogs().map((log, idx) => (
+                   <div key={idx} className={`relative group ${log.isVirtual ? 'opacity-70' : ''}`}>
                       <div className={`absolute -left-[32px] top-1 w-8 h-8 rounded-full border-4 border-slate-50 flex items-center justify-center text-xs shadow-sm bg-white z-10
                         ${log.type === 'apply' ? 'text-green-600' : 'text-slate-500'}`}>
                         {log.icon || (log.type === 'apply' ? '🚀' : '📝')}
@@ -363,7 +426,7 @@ export default function JobModal({ job, isOpen, onClose, onSave }) {
                       </div>
                    </div>
                  ))}
-                 {formData.activity_log.length === 0 && <p className="text-gray-400 text-sm italic">Sin actividad reciente.</p>}
+                 {formData.activity_log.length === 0 && !formData.date_applied && <p className="text-gray-400 text-sm italic">Sin actividad reciente.</p>}
               </div>
             </div>
           )}
@@ -372,8 +435,13 @@ export default function JobModal({ job, isOpen, onClose, onSave }) {
         {/* FOOTER */}
         <div className="p-4 border-t bg-white flex justify-end shrink-0 gap-3">
           <button onClick={onClose} className="px-4 py-2 text-slate-500 hover:text-slate-800 font-bold text-sm transition-colors">Cancelar</button>
-          <button onClick={handleSubmit} className="bg-slate-900 hover:bg-slate-800 text-white px-6 py-2 rounded-lg font-bold text-sm shadow-lg hover:shadow-xl transition-all transform active:scale-95 flex items-center gap-2">
-             <Save size={18}/> Guardar Cambios
+          <button 
+            onClick={handleSubmit} 
+            disabled={isSaving}
+            className={`px-6 py-2 rounded-lg font-bold text-sm shadow-lg transition-all flex items-center gap-2
+              ${isSaving ? 'bg-green-600 text-white cursor-wait' : 'bg-slate-900 hover:bg-slate-800 text-white transform active:scale-95 hover:shadow-xl'}`}
+          >
+             {isSaving ? <><Check size={18} className="animate-bounce"/> ¡Guardado!</> : <><Save size={18}/> Guardar Cambios</>}
           </button>
         </div>
       </div>
