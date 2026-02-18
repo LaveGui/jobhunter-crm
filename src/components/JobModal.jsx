@@ -17,8 +17,8 @@ export default function JobModal({ job, isOpen, onClose, onSave, initialTab = 'a
   
   // UI States
   const [showRawDesc, setShowRawDesc] = useState(false);
-  const [showDetails, setShowDetails] = useState(false); // Para Requisitos y Beneficios
-  const [contactView, setContactView] = useState('list'); // 'list' | 'add'
+  const [showDetails, setShowDetails] = useState(false);
+  const [contactView, setContactView] = useState('list');
 
   // Bitácora States
   const [logType, setLogType] = useState(initialLogType);
@@ -67,7 +67,6 @@ export default function JobModal({ job, isOpen, onClose, onSave, initialTab = 'a
       activity_log: JSON.stringify(formData.activity_log),
       last_updated: new Date().toISOString()
     };
-    // Protegemos campos IA para no borrar fórmulas en Sheets
     delete payload.ai_summary; delete payload.ai_requirements; delete payload.ai_benefits; delete payload.tech_stack;
 
     await onSave(payload);
@@ -132,16 +131,17 @@ export default function JobModal({ job, isOpen, onClose, onSave, initialTab = 'a
   if (!isOpen || !formData) return null;
 
   return (
-    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex justify-center items-center z-50 p-2 md:p-6 overflow-y-auto">
-      <div className="bg-slate-50 w-full max-w-7xl min-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-700">
+    // FIX CSS: Usamos 'items-start' con padding superior para evitar cortes, y 'max-h' en la tarjeta
+    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex justify-center items-start pt-10 z-50 p-4 overflow-hidden">
+      
+      {/* TARJETA PRINCIPAL: Usamos 'max-h-[90vh]' para forzar scroll interno y no de pantalla */}
+      <div className="bg-slate-50 w-full max-w-7xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-700 relative">
         
-        {/* --- HERO HEADER (RESTAURADO) --- */}
-        <div className="bg-white p-6 border-b border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
+        {/* --- HERO HEADER (FIJO) --- */}
+        <div className="bg-white p-6 border-b border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0 z-10 relative shadow-sm">
            <div className="flex-1 w-full">
               <div className="flex items-center gap-3 mb-1">
-                 {/* Titulo */}
                  <input name="title" value={formData.title} onChange={handleChange} className={`text-2xl md:text-3xl font-black text-slate-800 w-full ${inputDisguise}`} placeholder="Título del Puesto"/>
-                 {/* Corazones */}
                  <div className="flex shrink-0 gap-0.5 bg-slate-100 p-1 rounded-full">
                     {[1, 2, 3, 4, 5].map((l) => (
                       <button key={l} onClick={() => setFormData({...formData, enthusiasm: l})} className={`${formData.enthusiasm >= l ? 'text-yellow-400' : 'text-slate-300'} hover:scale-110 transition`}><Heart size={18} fill="currentColor"/></button>
@@ -149,7 +149,6 @@ export default function JobModal({ job, isOpen, onClose, onSave, initialTab = 'a
                  </div>
               </div>
               
-              {/* Metadatos (Empresa, Link, Salario) */}
               <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500 font-medium">
                  <div className="flex items-center gap-1"><Building2 size={16} className="text-slate-400"/><input name="company" value={formData.company} onChange={handleChange} className={`font-bold text-slate-700 w-40 ${inputDisguise}`}/></div>
                  <div className="h-4 w-px bg-slate-300"></div>
@@ -159,29 +158,28 @@ export default function JobModal({ job, isOpen, onClose, onSave, initialTab = 'a
               </div>
            </div>
            
-           {/* Estado y Cerrar */}
            <div className="flex flex-col items-end gap-3 shrink-0">
-              <button onClick={handleCloseAttempt} className="absolute top-4 right-4 text-slate-400 hover:text-slate-800"><X size={28}/></button>
+              <button onClick={handleCloseAttempt} className="text-slate-400 hover:text-slate-800 p-1"><X size={28}/></button>
               <div className="mt-8 md:mt-0"><select name="status" value={formData.status} onChange={handleChange} className="bg-slate-900 text-white font-bold py-2 px-4 rounded-lg text-sm cursor-pointer hover:bg-slate-800 outline-none border-4 border-slate-100 shadow-lg"><option>Prospecto</option><option>Aplicado</option><option>Entrevista</option><option>Oferta</option><option>Descartado</option></select></div>
            </div>
         </div>
 
-        {/* --- MAIN GRID --- */}
-        <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* --- MAIN GRID (SCROLLABLE) --- */}
+        <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-8 bg-slate-50">
            
-           {/* COLUMNA CENTRAL (2/3) - ESTRATEGIA Y TÁCTICA */}
+           {/* COLUMNA CENTRAL (2/3) */}
            <div className="lg:col-span-2 space-y-8">
               
               {/* 1. RESUMEN EJECUTIVO (IA) */}
               <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border-l-4 border-purple-500 p-5 rounded-r-xl shadow-sm">
                  <h3 className="text-purple-900 font-bold text-sm flex items-center gap-2 mb-2"><BrainCircuit size={18}/> Análisis del Puesto</h3>
                  <p className="text-slate-800 leading-relaxed text-sm">
-                   {formData.ai_summary || <span className="text-slate-400 italic">... Esperando datos de Sheets ...</span>}
+                   {formData.ai_summary || <span className="text-slate-400 italic">Esperando datos de Sheets... (Asegúrate de pegar la descripción abajo)</span>}
                  </p>
               </div>
 
               {/* 2. REQUISITOS Y BENEFICIOS (Colapsable) */}
-              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm bg-white">
                  <button onClick={() => setShowDetails(!showDetails)} className="w-full bg-slate-50 p-3 flex justify-between items-center hover:bg-slate-100 transition-colors">
                     <div className="flex items-center gap-2 font-bold text-slate-600 text-sm">
                        <ListChecks size={16}/> Requisitos & Beneficios <Gift size={16}/>
@@ -189,7 +187,7 @@ export default function JobModal({ job, isOpen, onClose, onSave, initialTab = 'a
                     {showDetails ? <ChevronUp size={16} className="text-slate-400"/> : <ChevronDown size={16} className="text-slate-400"/>}
                  </button>
                  {showDetails && (
-                    <div className="p-5 bg-white grid grid-cols-1 md:grid-cols-2 gap-6 animate-fadeIn">
+                    <div className="p-5 bg-white grid grid-cols-1 md:grid-cols-2 gap-6 animate-fadeIn border-t border-slate-100">
                        <div>
                           <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Requisitos</h4>
                           <div className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{formData.ai_requirements || "-"}</div>
@@ -202,13 +200,12 @@ export default function JobModal({ job, isOpen, onClose, onSave, initialTab = 'a
                  )}
               </div>
 
-              {/* 3. BITÁCORA COMPLETA (Action Center) */}
+              {/* 3. BITÁCORA COMPLETA */}
               <div className="space-y-4">
                  <h3 className="text-slate-800 font-bold text-lg flex items-center gap-2"><Clock size={20} className="text-slate-400"/> Actividad Reciente</h3>
                  
                  {/* Input Area */}
                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                    {/* Botones de Tipo */}
                     <div className="flex gap-2 mb-3 overflow-x-auto pb-1">
                        <button onClick={() => setLogType('note')} className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 border transition-all ${logType === 'note' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}><StickyNote size={12}/> Nota</button>
                        <button onClick={() => setLogType('message')} className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 border transition-all ${logType === 'message' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-slate-200 text-slate-600 hover:bg-blue-50'}`}><MessageSquare size={12}/> Mensaje</button>
@@ -216,7 +213,6 @@ export default function JobModal({ job, isOpen, onClose, onSave, initialTab = 'a
                        <button onClick={() => setLogType('email')} className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 border transition-all ${logType === 'email' ? 'bg-yellow-500 text-white border-yellow-500' : 'bg-white border-slate-200 text-slate-600 hover:bg-yellow-50'}`}><Mail size={12}/> Email</button>
                     </div>
 
-                    {/* Selector Contacto (si no es nota) */}
                     {logType !== 'note' && (
                        <div className="mb-3">
                           <select value={logContact} onChange={(e) => setLogContact(e.target.value)} className="w-full text-sm p-2 rounded border border-slate-200 bg-slate-50 outline-none focus:border-blue-400 text-slate-700">
@@ -226,7 +222,6 @@ export default function JobModal({ job, isOpen, onClose, onSave, initialTab = 'a
                        </div>
                     )}
 
-                    {/* Textarea + Enviar */}
                     <div className="flex gap-2">
                        <textarea 
                           value={logMessage} 
@@ -262,7 +257,7 @@ export default function JobModal({ job, isOpen, onClose, onSave, initialTab = 'a
                  </div>
               </div>
 
-              {/* 4. RAW DESCRIPTION (Al final) */}
+              {/* 4. RAW DESCRIPTION */}
               <div className="border-t border-slate-200 pt-6">
                  <button onClick={() => setShowRawDesc(!showRawDesc)} className="text-xs font-bold text-slate-400 flex items-center gap-1 hover:text-blue-600 transition-colors mb-2">
                     {showRawDesc ? <ChevronUp size={14}/> : <ChevronDown size={14}/>} 
@@ -274,10 +269,10 @@ export default function JobModal({ job, isOpen, onClose, onSave, initialTab = 'a
               </div>
            </div>
 
-           {/* COLUMNA LATERAL (1/3) - REFERENCIAS Y AGENDA */}
+           {/* COLUMNA LATERAL (1/3) */}
            <div className="space-y-6">
               
-              {/* TECH STACK (Arriba del todo) */}
+              {/* TECH STACK */}
               <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
                  <h4 className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2"><Cpu size={14}/> Tech Stack</h4>
                  {formData.tech_stack ? (
@@ -305,7 +300,7 @@ export default function JobModal({ job, isOpen, onClose, onSave, initialTab = 'a
                  {!formData.date_applied && (<button onClick={markAsApplied} className="w-full py-2 bg-indigo-600 text-white font-bold text-xs rounded hover:bg-indigo-700 transition-colors">Marcar como Enviado</button>)}
               </div>
 
-              {/* CONTACTOS (Agenda Lateral) */}
+              {/* CONTACTOS */}
               <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm flex flex-col h-[350px]">
                  <div className="flex justify-between items-center mb-3 pb-2 border-b border-slate-100">
                     <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2"><UserPlus size={14}/> Contactos ({formData.contacts.length})</h4>
@@ -350,8 +345,8 @@ export default function JobModal({ job, isOpen, onClose, onSave, initialTab = 'a
            </div>
         </div>
 
-        {/* --- FOOTER --- */}
-        <div className="bg-white border-t border-slate-200 p-4 flex justify-end gap-3 shrink-0">
+        {/* --- FOOTER (FIJO) --- */}
+        <div className="bg-white border-t border-slate-200 p-4 flex justify-end gap-3 shrink-0 z-10 relative">
            <button onClick={handleCloseAttempt} className="px-6 py-2 text-slate-500 font-bold text-sm hover:text-slate-800">Cerrar</button>
            <button onClick={handleSubmit} disabled={!hasChanges && !isSaving} className={`px-8 py-2 rounded-lg font-bold text-sm shadow-lg flex items-center gap-2 ${hasChanges ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>
               {isSaving ? 'Guardando...' : 'Guardar Cambios'}
