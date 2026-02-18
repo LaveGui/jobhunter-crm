@@ -4,12 +4,13 @@ import {
   ArrowLeft, Save, Link as LinkIcon, UserPlus, Clock, Heart, 
   MessageSquare, StickyNote, Euro, Building2, MapPin, 
   ExternalLink, BrainCircuit, ListChecks, Gift, Cpu, 
-  Palette, Phone, Mail, Send, Copy, Check
+  Palette, Phone, Mail, Send, Copy, Check, FileText // <--- AQUÍ ESTABA EL ERROR (Faltaba este)
 } from 'lucide-react'; 
 
 export default function JobPage({ jobs, onSave }) {
   const { id } = useParams();
   const navigate = useNavigate();
+  // Buscamos el trabajo. Convertimos a String para evitar errores de tipo (número vs texto)
   const job = jobs.find(j => String(j.id) === String(id));
 
   // Estados del Formulario
@@ -19,9 +20,8 @@ export default function JobPage({ jobs, onSave }) {
   
   // UI States
   const [showRawDesc, setShowRawDesc] = useState(false);
-  const [showDetails, setShowDetails] = useState(true); // Abierto por defecto en página
   const [contactView, setContactView] = useState('list');
-  const [draftCopied, setDraftCopied] = useState(false); // Feedback visual copia
+  const [draftCopied, setDraftCopied] = useState(false); 
 
   // Bitácora States
   const [logType, setLogType] = useState('note');
@@ -41,7 +41,7 @@ export default function JobPage({ jobs, onSave }) {
         enthusiasm: Number(job.enthusiasm) || 3,
         notes: job.notes || '',
         tech_stack: job.tech_stack || '',
-        message_drafts: job.message_drafts || '', // <--- NUEVO CAMPO
+        message_drafts: job.message_drafts || '', 
         ai_summary: job.ai_summary || '',
         ai_requirements: job.ai_requirements || '',
         ai_benefits: job.ai_benefits || ''
@@ -50,7 +50,7 @@ export default function JobPage({ jobs, onSave }) {
     }
   }, [job]);
 
-  // Detector de cambios manual (simple)
+  // Detector de cambios manual
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
     setHasChanges(true);
@@ -88,7 +88,7 @@ export default function JobPage({ jobs, onSave }) {
     setTimeout(() => setDraftCopied(false), 2000);
   };
 
-  // --- BITACORA & CONTACTOS (Lógica Idéntica) ---
+  // --- BITACORA & CONTACTOS ---
   const handleLogSubmit = () => {
     if (!logMessage) return;
     const icons = { message: '👔', call: '📞', email: '📧', note: '📝' };
@@ -120,12 +120,13 @@ export default function JobPage({ jobs, onSave }) {
   const getTechBadges = () => formData?.tech_stack ? formData.tech_stack.split(',').map(t => t.trim()).filter(t => t) : [];
   const inputDisguise = "bg-transparent border border-transparent hover:border-slate-300 hover:bg-white focus:bg-white focus:border-blue-500 rounded px-1 transition-all outline-none";
 
-  if (!job || !formData) return <div className="p-10 text-center">Cargando oportunidad...</div>;
+  if (!job) return <div className="p-10 text-center text-slate-500">Cargando oportunidad o no encontrada...</div>;
+  if (!formData) return <div className="p-10 text-center text-slate-500">Preparando datos...</div>;
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans text-slate-900">
       
-      {/* --- TOP BAR (Navegación) --- */}
+      {/* --- TOP BAR --- */}
       <div className="bg-white border-b border-slate-200 sticky top-0 z-20 px-4 py-3 flex justify-between items-center shadow-sm">
         <button onClick={handleBack} className="flex items-center gap-2 text-slate-500 hover:text-slate-800 font-bold text-sm transition-colors">
           <ArrowLeft size={18}/> Volver al Tablero
@@ -264,7 +265,7 @@ export default function JobPage({ jobs, onSave }) {
                  ) : <span className="text-xs text-slate-300 italic">Sin datos...</span>}
               </div>
 
-              {/* 🧪 LABORATORIO DE MENSAJES (NUEVO) */}
+              {/* BORRADORES MENSAJES */}
               <div className="bg-blue-50 border border-blue-200 p-5 rounded-xl shadow-sm relative group">
                  <div className="flex justify-between items-center mb-2">
                     <label className="text-blue-800 font-bold text-xs uppercase flex items-center gap-2"><MessageSquare size={14}/> Borradores LinkedIn</label>
@@ -277,11 +278,8 @@ export default function JobPage({ jobs, onSave }) {
                     value={formData.message_drafts} 
                     onChange={handleChange} 
                     className="w-full bg-white border-0 rounded-lg p-3 text-sm text-slate-700 h-40 focus:ring-2 focus:ring-blue-400 outline-none resize-none placeholder-blue-300"
-                    placeholder="Pega aquí los mensajes generados por tu GEM para copiar y pegar luego..."
+                    placeholder="Pega aquí los mensajes generados por tu GEM..."
                  />
-                 <div className="mt-2 text-[10px] text-blue-400 text-center">
-                    Usa este espacio para guardar tus "scripts" de contacto.
-                 </div>
               </div>
 
               {/* MIS NOTAS */}
@@ -290,7 +288,7 @@ export default function JobPage({ jobs, onSave }) {
                  <textarea name="notes" value={formData.notes} onChange={handleChange} className="w-full bg-white border-0 rounded-lg p-3 text-sm text-slate-800 h-32 focus:ring-2 focus:ring-yellow-400 outline-none resize-none placeholder-yellow-800/30" placeholder="Estrategia, pros, contras..."/>
               </div>
 
-              {/* CONTACTOS (Agenda) */}
+              {/* CONTACTOS */}
               <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm">
                  <div className="flex justify-between items-center mb-3 pb-2 border-b border-slate-100">
                     <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2"><UserPlus size={14}/> Contactos ({formData.contacts.length})</h4>
