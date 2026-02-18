@@ -1,18 +1,21 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export const analyzeJobDescription = async (description) => {
+  // Recuperamos la API Key que guardaste en el modal de configuración
   const apiKey = localStorage.getItem('gemini_api_key');
   
   if (!apiKey) {
-    throw new Error("Falta la API Key de Gemini. Configúrala en CV Studio.");
+    throw new Error("Falta la API Key. Configúrala en el botón de Tareas (Rayo) > Configurar (Engranaje).");
   }
 
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+  
+  // --- CAMBIO AQUÍ: Usamos el modelo actual 'gemini-1.5-flash' ---
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
   const prompt = `
     Analiza la siguiente descripción de trabajo y extrae la información en formato JSON estricto.
-    No uses Markdown (bdticks), solo devuelve el objeto JSON raw.
+    No uses Markdown, ni bloques de código, solo devuelve el objeto JSON puro.
     
     Descripción:
     "${description.substring(0, 10000)}"
@@ -20,11 +23,11 @@ export const analyzeJobDescription = async (description) => {
     Formato JSON requerido:
     {
       "summary": "Resumen ejecutivo de 2 lineas destacando el rol y el objetivo principal.",
-      "requirements": "Lista breve (max 5 items) con los requisitos técnicos y soft skills clave (Ej: React, Inglés C1, Liderazgo).",
-      "benefits": "Lista breve (max 5 items) de beneficios destacados (Ej: Remoto, Salario en USD, Equity)."
+      "requirements": "Lista breve (max 5 items) con los requisitos técnicos y soft skills clave.",
+      "benefits": "Lista breve (max 5 items) de beneficios destacados."
     }
     
-    Responde en Español. Sé conciso y directo.
+    Responde en Español.
   `;
 
   try {
@@ -32,12 +35,12 @@ export const analyzeJobDescription = async (description) => {
     const response = await result.response;
     const text = response.text();
     
-    // Limpieza por si Gemini devuelve ```json ... ```
+    // Limpieza agresiva por si la IA devuelve markdown
     const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
     
     return JSON.parse(cleanText);
   } catch (error) {
     console.error("Error analizando con Gemini:", error);
-    throw error;
+    throw new Error("Fallo al conectar con IA. Revisa tu API Key o intenta de nuevo.");
   }
 };
