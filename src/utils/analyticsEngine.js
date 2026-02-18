@@ -64,9 +64,10 @@ export const calculateMetrics = (jobs) => {
     return applied >= startOfWeek;
   }).length;
 
-  // B. Promedios de Calidad (Contactos y Actividades)
-  // Solo contamos ofertas activas (no descartadas) para ser justos
-  const activeJobs = jobs.filter(j => j.status !== 'Descartado');
+// B. Promedios de Calidad (Contactos y Actividades)
+  // CAMBIO: Ahora solo medimos ofertas que ya están en juego (Aplicado, Entrevista, Oferta)
+  // Ignoramos 'Prospecto' (porque acabamos de llegar) y 'Descartado' (porque ya fue)
+  const activeJobs = jobs.filter(j => ['Aplicado', 'Entrevista', 'Oferta'].includes(j.status));
   
   const totalContacts = activeJobs.reduce((acc, job) => {
     // Helper seguro para contar contactos
@@ -88,9 +89,10 @@ export const calculateMetrics = (jobs) => {
     return acc + count;
   }, 0);
 
+  // Evitamos dividir por 0 si no hay activeJobs
   const avgContacts = activeJobs.length ? (totalContacts / activeJobs.length).toFixed(1) : 0;
   const avgActivities = activeJobs.length ? (totalActivities / activeJobs.length).toFixed(1) : 0;
-
+  
   return {
     stages,
     funnel,
