@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'; 
 import useGoogleSheets from './hooks/useGoogleSheets';
 import JobModal from './components/JobModal';
+import QuickAddModal from './components/QuickAddModal';
 import StrategyModal from './components/StrategyModal';
 import StatsModal from './components/StatsModal';
 import { Link } from "react-router-dom";
@@ -18,28 +19,31 @@ export default function App() {
     'Prospecto': [], 'Aplicado': [], 'Entrevista': [], 'Oferta': [], 'Descartado': []
   });
   
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  // --- ESTADOS DE MODALES ---
+  const [isJobModalOpen, setIsJobModalOpen] = useState(false); // Para ver/editar (Dashboard)
+  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false); // Para crear (Formulario Rápido)
   const [currentJob, setCurrentJob] = useState(null);
   
-  // ESTADOS TAREAS Y ESTRATEGIA
+  // --- ESTADOS DE CARACTERÍSTICAS ---
   const [pendingTasks, setPendingTasks] = useState([]);
   const [showTaskPanel, setShowTaskPanel] = useState(false);
   const [showStrategyModal, setShowStrategyModal] = useState(false);
-  const [showStats, setShowStats] = useState(false); // Estado para el modal de métricas
+  const [showStats, setShowStats] = useState(false);
   const [activePlaybook, setActivePlaybook] = useState(DEFAULT_PLAYBOOK);
 
-  const [modalInitialTab, setModalInitialTab] = useState('details');
+  // --- ESTADOS DE UI/FILTROS ---
+  const [modalInitialTab, setModalInitialTab] = useState('activity');
   const [modalInitialLogType, setModalInitialLogType] = useState('note');
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState('last_updated'); 
 
-  // --- CARGAR ESTRATEGIA ---
+  // 1. CARGAR ESTRATEGIA AL INICIO
   useEffect(() => {
     const saved = localStorage.getItem('jobhunter_playbook');
     if (saved) setActivePlaybook(JSON.parse(saved));
   }, []);
 
-  // --- CALCULAR TAREAS ---
+  // 2. CALCULAR TAREAS PENDIENTES
   useEffect(() => {
     if (jobs.length > 0) {
       const tasks = calculatePendingTasks(jobs, activePlaybook);
@@ -73,7 +77,6 @@ export default function App() {
     return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   };
   
-  // FIX: Ordenamiento defensivo (company || '')
   const sortJobs = (jobsList) => {
     return [...jobsList].sort((a, b) => {
       if (sortBy === 'alpha') return (a.company || '').localeCompare(b.company || '');
@@ -83,7 +86,7 @@ export default function App() {
     });
   };
 
-  // --- SINCRONIZACIÓN DE COLUMNAS (Con Fix Defensivo) ---
+  // 3. SINCRONIZACIÓN DE COLUMNAS (FILTRO Y ORDEN)
   useEffect(() => {
     if (jobs.length > 0) {
       const newCols = { 'Prospecto': [], 'Aplicado': [], 'Entrevista': [], 'Oferta': [], 'Descartado': [] };
@@ -114,23 +117,21 @@ export default function App() {
       setCurrentJob(job);
       setModalInitialTab('activity'); 
       setModalInitialLogType(task.actionType); 
-      setIsModalOpen(true);
+      setIsJobModalOpen(true);
       setShowTaskPanel(false); 
     }
   };
 
+  // Manejador para abrir el Quick Add (Crear)
   const handleOpenNewJob = () => {
-    setCurrentJob(null);
-    setModalInitialTab('details');
-    setModalInitialLogType('note');
-    setIsModalOpen(true);
+    setIsQuickAddOpen(true);
   };
 
+  // Manejador para abrir el Job Modal (Ver/Editar)
   const handleOpenExistingJob = (job) => {
     setCurrentJob(job);
-    setModalInitialTab('details');
-    setModalInitialLogType('note');
-    setIsModalOpen(true);
+    setModalInitialTab('activity'); // Default para ver el dashboard
+    setIsJobModalOpen(true);
   };
 
   const onDragEnd = (result) => {
@@ -153,11 +154,19 @@ export default function App() {
      updateJob({ ...movedJob, status: newStatus, last_updated: new Date().toISOString(), ...extraUpdates });
   };
 
+  // HANDLER DE GUARDADO UNIFICADO
   const handleSaveJob = async (jobData) => {
-    const action = currentJob ? 'update' : 'create';
-    const payload = { ...jobData, id: currentJob?.id, last_updated: new Date().toISOString() };
-    if (action === 'create') { await addJob(payload); setIsModalOpen(false); } 
-    else { await updateJob(payload); }
+    // Si tiene ID es update, si no es create
+    const action = jobData.id ? 'update' : 'create';
+    const payload = { ...jobData, last_updated: new Date().toISOString() };
+    
+    if (action === 'create') { 
+        await addJob(payload); 
+        setIsQuickAddOpen(false); // Cierra el Quick Add al crear
+    } else { 
+        await updateJob(payload); 
+        // No cerramos el JobModal para permitir seguir editando
+    }
   };
 
   return (
@@ -171,16 +180,11 @@ export default function App() {
             <h1 className="text-xl font-bold tracking-tight">JobHunter CRM</h1>
           </div>
           <div className="flex gap-3">
-            
             {/* BOTÓN MÉTRICAS */}
-            <button 
-               onClick={() => setShowStats(true)}
-               className="p-2 rounded-lg bg-slate-800 text-blue-400 hover:bg-slate-700 hover:text-white transition-colors border border-slate-700"
-               title="Ver Estadísticas"
-            >
-              <BarChart3 size={20} />
+            <button onClick={() => setShowStats(true)} className="p-2 rounded-lg bg-slate-800 text-blue-400 hover:bg-slate-700 hover:text-white border border-slate-700">
+                <BarChart3 size={20} />
             </button>
-
+            
             {/* BOTÓN TAREAS */}
             <button 
                onClick={() => setShowTaskPanel(!showTaskPanel)}
@@ -196,9 +200,11 @@ export default function App() {
               )}
             </button>
 
-            <Link to="/cv" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-sm transition-colors shadow-lg shadow-blue-900/50">
+            <Link to="/cv" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-lg">
               CV Studio
             </Link>
+            
+            {/* BOTÓN NUEVA OPORTUNIDAD (QUICK ADD) */}
             <button onClick={handleOpenNewJob} className="bg-white text-slate-900 hover:bg-slate-100 px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-colors">
               <Plus size={16} /> Nueva Oportunidad
             </button>
@@ -214,7 +220,7 @@ export default function App() {
                 <h3 className="font-bold text-lg flex items-center gap-2"><Zap className="text-yellow-400 fill-yellow-400" size={20}/> Tareas para Hoy</h3>
                 <div className="flex gap-4 items-center">
                     <span className="text-xs text-slate-400 uppercase font-bold tracking-wider">{pendingTasks.length} Acciones</span>
-                    <button onClick={() => setShowStrategyModal(true)} className="text-slate-400 hover:text-white p-1.5 rounded hover:bg-slate-700 flex items-center gap-1 text-xs font-bold bg-slate-900/50 border border-slate-600" title="Configurar Estrategia">
+                    <button onClick={() => setShowStrategyModal(true)} className="text-slate-400 hover:text-white p-1.5 rounded hover:bg-slate-700 flex items-center gap-1 text-xs font-bold bg-slate-900/50 border border-slate-600">
                         <Settings size={14}/> Configurar
                     </button>
                 </div>
@@ -289,7 +295,10 @@ export default function App() {
                                 ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps}
                                 style={{ ...provided.draggableProps.style }}
                                 onClick={() => handleOpenExistingJob(job)}
-                                className={`bg-white p-4 rounded-lg border transition-all cursor-pointer group relative hover:shadow-md ${snapshot.isDragging ? 'shadow-2xl ring-2 ring-blue-500 z-50' : 'shadow-sm border-slate-200'} ${Number(job.enthusiasm) === 5 ? 'border-l-4 border-l-yellow-400' : 'hover:border-blue-400'}`}>
+                                className={`bg-white p-4 rounded-lg border transition-all cursor-pointer group relative hover:shadow-md 
+                                    ${snapshot.isDragging ? 'shadow-2xl ring-2 ring-blue-500 z-50' : 'shadow-sm border-slate-200'} 
+                                    ${Number(job.enthusiasm) === 5 ? 'border-l-4 border-l-yellow-400' : 'hover:border-blue-400'}`}
+                                >
                                 {Number(job.enthusiasm) === 5 && (<div className="absolute top-0 right-0 w-full h-1 bg-gradient-to-r from-transparent via-yellow-200 to-transparent opacity-50"></div>)}
                                 <h3 className="font-bold text-slate-800 mb-0.5 leading-snug text-sm line-clamp-2">{job.title}</h3>
                                 <p className="text-blue-600 text-xs font-bold flex items-center gap-1 mb-3 truncate"><Building2 size={10}/> {job.company}</p>
@@ -324,7 +333,7 @@ export default function App() {
         )}
       </main>
 
-      {/* MODAL CONFIGURACIÓN ESTRATEGIA */}
+      {/* MODALES SECUNDARIOS */}
       {showStrategyModal && (
         <StrategyModal 
           isOpen={showStrategyModal} 
@@ -333,7 +342,6 @@ export default function App() {
         />
       )}
 
-      {/* MODAL ESTADÍSTICAS */}
       {showStats && (
         <StatsModal 
           jobs={jobs} 
@@ -342,11 +350,21 @@ export default function App() {
         />
       )}
 
-      {isModalOpen && (
+      {/* MODAL CREAR (QUICK ADD) */}
+      {isQuickAddOpen && (
+        <QuickAddModal 
+          isOpen={isQuickAddOpen}
+          onClose={() => setIsQuickAddOpen(false)}
+          onSave={handleSaveJob}
+        />
+      )}
+
+      {/* MODAL DASHBOARD (JOB MODAL) */}
+      {isJobModalOpen && (
         <JobModal 
           job={currentJob} 
-          isOpen={isModalOpen} 
-          onClose={() => setIsModalOpen(false)} 
+          isOpen={isJobModalOpen} 
+          onClose={() => setIsJobModalOpen(false)} 
           onSave={handleSaveJob} 
           initialTab={modalInitialTab} 
           initialLogType={modalInitialLogType}
