@@ -4,13 +4,14 @@ import {
   ArrowLeft, Save, Link as LinkIcon, UserPlus, Clock, Heart, 
   MessageSquare, StickyNote, Euro, Building2, MapPin, 
   ExternalLink, BrainCircuit, ListChecks, Gift, Cpu, 
-  Palette, Phone, Mail, Send, Copy, Check, FileText // <--- AQUÍ ESTABA EL ERROR (Faltaba este)
+  Palette, Phone, Mail, Send, Copy, Check, FileText, X // <--- FIX 1: AÑADIDO X AQUÍ
 } from 'lucide-react'; 
 
 export default function JobPage({ jobs, onSave }) {
   const { id } = useParams();
   const navigate = useNavigate();
-  // Buscamos el trabajo. Convertimos a String para evitar errores de tipo (número vs texto)
+  
+  // Buscamos el trabajo. Convertimos a String para evitar errores de tipo
   const job = jobs.find(j => String(j.id) === String(id));
 
   // Estados del Formulario
@@ -106,14 +107,35 @@ export default function JobPage({ jobs, onSave }) {
     setNewContact({ name: '', role: 'Recruiter', linkedin: '', email: '', phone: '' });
     setContactView('list'); setHasChanges(true);
   };
+  
   const removeContact = (idx) => {
     const c = [...formData.contacts]; c.splice(idx, 1); setFormData({ ...formData, contacts: c }); setHasChanges(true);
   };
+  
   const markAsApplied = () => {
     const todayISO = new Date().toISOString().split('T')[0];
     const todayLog = new Date().toLocaleString('es-ES');
     setFormData({ ...formData, status: 'Aplicado', date_applied: todayISO, activity_log: [{ date: todayLog, type: 'apply', text: '✅ CV Enviado', icon: '🚀' }, ...formData.activity_log] });
     setHasChanges(true);
+  };
+
+  // --- FIX 2: LOGICA VISUAL PARA EL HISTORIAL ---
+  const getLogsToRender = () => {
+    if (!formData) return [];
+    let logsToShow = [...formData.activity_log];
+    
+    // Si hay fecha de aplicación pero NO hay un log de tipo 'apply', lo inventamos visualmente
+    const hasApplyLog = logsToShow.some(log => log.type === 'apply');
+    if (!hasApplyLog && formData.date_applied) {
+      logsToShow.push({
+        date: new Date(formData.date_applied).toLocaleDateString('es-ES'),
+        type: 'apply',
+        text: '✅ CV Enviado (Fecha registrada)',
+        icon: '🚀',
+        isVirtual: true // Marcador interno para saber que es generado
+      });
+    }
+    return logsToShow;
   };
 
   // Helpers UI
@@ -224,8 +246,9 @@ export default function JobPage({ jobs, onSave }) {
                  </div>
 
                  <div className="pl-8 border-l-2 border-slate-100 space-y-6 pt-2">
-                    {formData.activity_log.map((log, idx) => (
-                       <div key={idx} className="relative">
+                    {/* Renderizamos los logs usando la función que incluye el virtual */}
+                    {getLogsToRender().map((log, idx) => (
+                       <div key={idx} className={`relative ${log.isVirtual ? 'opacity-75' : ''}`}>
                           <div className={`absolute -left-[41px] top-0 w-8 h-8 rounded-full border-4 border-white flex items-center justify-center text-sm shadow-sm bg-slate-100 z-10`}>
                              {log.icon}
                           </div>
