@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   X, Save, Linkedin, Link as LinkIcon, UserPlus, Clock, Heart, 
   FileText, Send, Palette, Building2, Phone, Mail, MessageSquare, 
-  StickyNote, Euro, Check, ChevronDown, ChevronUp, BrainCircuit, AlertCircle
-} from 'lucide-react'; // <--- Nuevos iconos: Chevron, BrainCircuit
+  StickyNote, Euro, Check, ChevronDown, ChevronUp, BrainCircuit, Sparkles, ListChecks, Gift
+} from 'lucide-react'; 
+import { analyzeJobDescription } from '../utils/gemini'; // <--- IMPORT NUEVO
 
 export default function JobModal({ job, isOpen, onClose, onSave, initialTab = 'details', initialLogType = 'note' }) {
   const navigate = useNavigate();
@@ -12,7 +13,9 @@ export default function JobModal({ job, isOpen, onClose, onSave, initialTab = 'd
   const [formData, setFormData] = useState({
     company: '', title: '', status: 'Prospecto', 
     salary: '', location_type: 'Híbrido', job_link: '', description: '',
-    notes: '', // <--- Usaremos este campo existente para tu Análisis Personal
+    notes: '', 
+    // NUEVOS CAMPOS IA
+    ai_summary: '', ai_requirements: '', ai_benefits: '',
     enthusiasm: 3, contacts: [], activity_log: [], cv_text: '', date_applied: ''
   });
 
@@ -20,16 +23,15 @@ export default function JobModal({ job, isOpen, onClose, onSave, initialTab = 'd
   const [hasChanges, setHasChanges] = useState(false);
   const [activeTab, setActiveTab] = useState(initialTab);
   const [isSaving, setIsSaving] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false); // Estado para loading de IA
   
-  // ESTADO VISUAL PARA LA DESCRIPCIÓN
-  const [showDescription, setShowDescription] = useState(false); // Por defecto oculta si hay texto
+  const [showDescription, setShowDescription] = useState(false);
 
   const [newContact, setNewContact] = useState({ name: '', role: 'Recruiter', linkedin: '', email: '', phone: '' });
   const [logType, setLogType] = useState('note');
   const [logContact, setLogContact] = useState('');
   const [logMessage, setLogMessage] = useState('');
 
-  // Efecto inicialización
   useEffect(() => {
     if (isOpen) {
         setActiveTab(initialTab);
@@ -44,17 +46,21 @@ export default function JobModal({ job, isOpen, onClose, onSave, initialTab = 'd
         contacts: typeof job.contacts === 'string' ? JSON.parse(job.contacts || '[]') : (job.contacts || []),
         activity_log: typeof job.activity_log === 'string' ? JSON.parse(job.activity_log || '[]') : (job.activity_log || []),
         enthusiasm: Number(job.enthusiasm) || 3,
-        notes: job.notes || '' // Asegurar que notes exista
+        notes: job.notes || '',
+        // Mapeo seguro de campos nuevos (por si son undefined al principio)
+        ai_summary: job.ai_summary || '',
+        ai_requirements: job.ai_requirements || '',
+        ai_benefits: job.ai_benefits || ''
       };
       setFormData(initialData);
       setOriginalData(initialData);
       setHasChanges(false);
-      // Si hay descripción, la ocultamos por defecto para limpiar la vista. Si es nueva, la mostramos.
       setShowDescription(!initialData.description);
     } else {
       const initialData = {
         company: '', title: '', status: 'Prospecto', 
         salary: '', location_type: 'Híbrido', job_link: '', description: '', notes: '',
+        ai_summary: '', ai_requirements: '', ai_benefits: '',
         enthusiasm: 3, contacts: [], activity_log: [], cv_text: '', date_applied: ''
       };
       setFormData(initialData);
@@ -70,7 +76,35 @@ export default function JobModal({ job, isOpen, onClose, onSave, initialTab = 'd
     }
   }, [formData, originalData]);
 
-  // --- HELPERS Y HANDLERS ---
+  // --- IA HANDLER ---
+  const handleAnalyzeAI = async () => {
+    if (!formData.description) {
+      alert("⚠️ Primero pega la Descripción del Puesto.");
+      return;
+    }
+    
+    setIsAnalyzing(true);
+    try {
+      const analysis = await analyzeJobDescription(formData.description);
+      
+      // Convertimos arrays a strings con bullets si vienen como array
+      const reqText = Array.isArray(analysis.requirements) ? analysis.requirements.map(r => `• ${r}`).join('\n') : analysis.requirements;
+      const benText = Array.isArray(analysis.benefits) ? analysis.benefits.map(b => `• ${b}`).join('\n') : analysis.benefits;
+
+      setFormData(prev => ({
+        ...prev,
+        ai_summary: analysis.summary,
+        ai_requirements: reqText,
+        ai_benefits: benText
+      }));
+    } catch (error) {
+      alert("Error al analizar: " + error.message);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  // --- HELPERS ---
   const formatDateNice = (dateString) => {
     if (!dateString) return '';
     try { const date = new Date(dateString); return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }); } catch (e) { return dateString; }
@@ -82,7 +116,7 @@ export default function JobModal({ job, isOpen, onClose, onSave, initialTab = 'd
 
   const handleCloseAttempt = () => {
     if (hasChanges) {
-      if (window.confirm('⚠️ Tienes cambios sin guardar.\n\n¿Seguro que quieres cerrar?')) onClose();
+      if (window.confirm('⚠️ Tienes cambios sin guardar. ¿Cerrar?')) onClose();
     } else {
       onClose();
     }
@@ -125,7 +159,7 @@ export default function JobModal({ job, isOpen, onClose, onSave, initialTab = 'd
   };
 
   const handleGoToCV = () => {
-    if (hasChanges) { if(!window.confirm("Guardar cambios antes de ir al CV?")) return; }
+    if (hasChanges) { if(!window.confirm("Guarda cambios antes de ir al CV.")) return; }
     navigate('/cv', { state: { jobContext: formData } });
   };
 
@@ -181,6 +215,12 @@ export default function JobModal({ job, isOpen, onClose, onSave, initialTab = 'd
         {/* TABS */}
         <div className="flex border-b bg-slate-50 shrink-0">
           <button onClick={() => setActiveTab('details')} className={`flex-1 py-3 text-sm font-bold flex items-center justify-center gap-2 border-b-2 transition-colors ${activeTab === 'details' ? 'border-blue-600 text-blue-600 bg-white' : 'border-transparent text-slate-500 hover:text-slate-700'}`}><FileText size={16}/> Detalles</button>
+          
+          {/* NUEVA TAB IA */}
+          <button onClick={() => setActiveTab('ai_analysis')} className={`flex-1 py-3 text-sm font-bold flex items-center justify-center gap-2 border-b-2 transition-colors ${activeTab === 'ai_analysis' ? 'border-purple-600 text-purple-600 bg-purple-50' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
+            <Sparkles size={16} className={activeTab === 'ai_analysis' ? "text-purple-600" : "text-slate-400"}/> Análisis IA
+          </button>
+
           <button onClick={() => setActiveTab('contacts')} className={`flex-1 py-3 text-sm font-bold flex items-center justify-center gap-2 border-b-2 transition-colors ${activeTab === 'contacts' ? 'border-blue-600 text-blue-600 bg-white' : 'border-transparent text-slate-500 hover:text-slate-700'}`}><UserPlus size={16}/> Contactos ({formData.contacts.length})</button>
           <button onClick={() => setActiveTab('activity')} className={`flex-1 py-3 text-sm font-bold flex items-center justify-center gap-2 border-b-2 transition-colors ${activeTab === 'activity' ? 'border-blue-600 text-blue-600 bg-white' : 'border-transparent text-slate-500 hover:text-slate-700'}`}><Clock size={16}/> Bitácora</button>
         </div>
@@ -188,10 +228,10 @@ export default function JobModal({ job, isOpen, onClose, onSave, initialTab = 'd
         {/* CONTENIDO */}
         <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
           
+          {/* TAB 1: DETALLES */}
           {activeTab === 'details' && (
             <div className="space-y-5 animate-fadeIn">
-              
-              {/* DATOS BÁSICOS */}
+              {/* Bloques de Datos Básicos (Empresa, Salario...) */}
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Empresa</label><div className="relative group"><Building2 className="absolute left-3 top-2.5 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={16}/><input name="company" value={formData.company} onChange={handleChange} className="w-full border border-slate-300 rounded-lg p-2 pl-10 text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-bold" placeholder="Nombre"/></div></div>
                 <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Enlace Oferta</label><div className="relative group"><LinkIcon className="absolute left-3 top-2.5 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={16}/><input name="job_link" value={formData.job_link} onChange={handleChange} className="w-full border border-slate-300 rounded-lg p-2 pl-10 text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-blue-600 underline" placeholder="https://..." /></div></div>
@@ -201,39 +241,30 @@ export default function JobModal({ job, isOpen, onClose, onSave, initialTab = 'd
                 <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Modalidad</label><input name="location_type" value={formData.location_type} onChange={handleChange} placeholder="Híbrido..." className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:border-blue-500 outline-none"/></div>
               </div>
 
-              {/* ANÁLISIS PERSONAL (NUEVO) */}
+              {/* ANÁLISIS PERSONAL (PROS / CONTRAS) */}
               <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-3">
                 <label className="text-xs font-bold text-yellow-700 uppercase mb-1 flex items-center gap-2">
-                  <BrainCircuit size={14}/> Análisis Personal (Pros / Contras)
+                  <BrainCircuit size={14}/> Mis Notas / Análisis Personal
                 </label>
                 <textarea 
                   name="notes" 
                   value={formData.notes} 
                   onChange={handleChange} 
                   className="w-full bg-white border border-yellow-200 rounded p-2 text-sm h-20 outline-none focus:border-yellow-400 text-slate-700"
-                  placeholder="Ej: Pros: Buen stack tecnológico. Contras: 4 días presenciales. Buscan perfil más junior..."
+                  placeholder="Ej: Pros: Buen stack. Contras: Lejos de casa. Perfil más Senior de lo que soy..."
                 />
               </div>
 
-              {/* JOB DESCRIPTION (COLAPSABLE) */}
+              {/* JOB DESCRIPTION */}
               <div className="border border-slate-200 rounded-lg overflow-hidden">
-                <button 
-                  type="button"
-                  onClick={() => setShowDescription(!showDescription)}
-                  className="w-full bg-slate-50 p-3 flex justify-between items-center text-xs font-bold text-slate-500 hover:bg-slate-100 transition-colors"
-                >
-                  <span className="uppercase">Descripción del Puesto</span>
+                <button type="button" onClick={() => setShowDescription(!showDescription)} className="w-full bg-slate-50 p-3 flex justify-between items-center text-xs font-bold text-slate-500 hover:bg-slate-100 transition-colors">
+                  <span className="uppercase">Descripción del Puesto (Raw)</span>
                   {showDescription ? <div className="flex items-center gap-1"><ChevronUp size={14}/> Ocultar</div> : <div className="flex items-center gap-1"><ChevronDown size={14}/> Ver Completa</div>}
                 </button>
-                
                 {showDescription ? (
                   <textarea name="description" value={formData.description} onChange={handleChange} className="w-full p-3 text-sm h-48 outline-none font-mono text-slate-600 leading-relaxed resize-y border-t border-slate-100" placeholder="Pega aquí la descripción..."></textarea>
                 ) : (
-                  formData.description && (
-                    <div className="p-3 text-xs text-slate-400 italic border-t border-slate-100 bg-white">
-                      {formData.description.substring(0, 150)}...
-                    </div>
-                  )
+                  formData.description && <div className="p-3 text-xs text-slate-400 italic border-t border-slate-100 bg-white">{formData.description.substring(0, 150)}...</div>
                 )}
               </div>
 
@@ -249,6 +280,74 @@ export default function JobModal({ job, isOpen, onClose, onSave, initialTab = 'd
             </div>
           )}
 
+          {/* TAB 2: ANÁLISIS IA (NUEVA) */}
+          {activeTab === 'ai_analysis' && (
+            <div className="space-y-6 animate-fadeIn">
+              
+              {/* BOTÓN DE ACCIÓN */}
+              <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 flex flex-col items-center justify-center gap-2 text-center">
+                <div className="text-purple-800 font-bold text-sm">¿Mucho texto? Deja que la IA lo resuma.</div>
+                <button 
+                  onClick={handleAnalyzeAI} 
+                  disabled={isAnalyzing || !formData.description}
+                  className={`px-6 py-2 rounded-full font-bold text-white shadow-lg flex items-center gap-2 transition-all
+                    ${isAnalyzing ? 'bg-purple-400 cursor-wait' : 'bg-purple-600 hover:bg-purple-700 hover:scale-105 active:scale-95'}
+                    ${!formData.description ? 'opacity-50 cursor-not-allowed' : ''}
+                  `}
+                >
+                  {isAnalyzing ? <><Sparkles size={16} className="animate-spin"/> Analizando...</> : <><Sparkles size={16}/> Analizar Oferta con IA</>}
+                </button>
+                {!formData.description && <p className="text-xs text-red-400">* Pega la descripción en la pestaña Detalles primero.</p>}
+              </div>
+
+              {/* RESULTADOS */}
+              {(formData.ai_summary || isAnalyzing) && (
+                <div className="space-y-4">
+                  
+                  {/* RESUMEN */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2"><BrainCircuit size={14}/> Resumen Ejecutivo</label>
+                    <textarea 
+                      name="ai_summary" 
+                      value={formData.ai_summary} 
+                      onChange={handleChange}
+                      className="w-full border border-slate-200 rounded-lg p-3 text-sm h-24 focus:border-purple-400 outline-none bg-white leading-relaxed"
+                      placeholder="El resumen aparecerá aquí..."
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* REQUISITOS */}
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2"><ListChecks size={14}/> Requisitos Clave</label>
+                      <textarea 
+                        name="ai_requirements" 
+                        value={formData.ai_requirements} 
+                        onChange={handleChange}
+                        className="w-full border border-slate-200 rounded-lg p-3 text-sm h-40 focus:border-purple-400 outline-none bg-white leading-relaxed"
+                        placeholder="• Requisito 1..."
+                      />
+                    </div>
+
+                    {/* BENEFICIOS */}
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2"><Gift size={14}/> Beneficios</label>
+                      <textarea 
+                        name="ai_benefits" 
+                        value={formData.ai_benefits} 
+                        onChange={handleChange}
+                        className="w-full border border-slate-200 rounded-lg p-3 text-sm h-40 focus:border-purple-400 outline-none bg-white leading-relaxed"
+                        placeholder="• Beneficio 1..."
+                      />
+                    </div>
+                  </div>
+
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 3: CONTACTOS */}
           {activeTab === 'contacts' && (
             <div className="space-y-4 animate-fadeIn">
               <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
