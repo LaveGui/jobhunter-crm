@@ -67,6 +67,7 @@ export default function JobModal({ job, isOpen, onClose, onSave, initialTab = 'a
       activity_log: JSON.stringify(formData.activity_log),
       last_updated: new Date().toISOString()
     };
+    // Protegemos campos IA para no borrar fórmulas en Sheets
     delete payload.ai_summary; delete payload.ai_requirements; delete payload.ai_benefits; delete payload.tech_stack;
 
     await onSave(payload);
@@ -88,7 +89,7 @@ export default function JobModal({ job, isOpen, onClose, onSave, initialTab = 'a
     if (!newContact.name) return;
     setFormData({ ...formData, contacts: [...formData.contacts, newContact] });
     setNewContact({ name: '', role: 'Recruiter', linkedin: '', email: '', phone: '' });
-    setContactView('list'); // Volver a la lista
+    setContactView('list'); 
   };
   const removeContact = (idx) => {
     const c = [...formData.contacts]; c.splice(idx, 1); setFormData({ ...formData, contacts: c });
@@ -134,17 +135,21 @@ export default function JobModal({ job, isOpen, onClose, onSave, initialTab = 'a
     <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex justify-center items-center z-50 p-2 md:p-6 overflow-y-auto">
       <div className="bg-slate-50 w-full max-w-7xl min-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-700">
         
-        {/* --- HERO HEADER --- */}
+        {/* --- HERO HEADER (RESTAURADO) --- */}
         <div className="bg-white p-6 border-b border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
            <div className="flex-1 w-full">
               <div className="flex items-center gap-3 mb-1">
+                 {/* Titulo */}
                  <input name="title" value={formData.title} onChange={handleChange} className={`text-2xl md:text-3xl font-black text-slate-800 w-full ${inputDisguise}`} placeholder="Título del Puesto"/>
+                 {/* Corazones */}
                  <div className="flex shrink-0 gap-0.5 bg-slate-100 p-1 rounded-full">
                     {[1, 2, 3, 4, 5].map((l) => (
                       <button key={l} onClick={() => setFormData({...formData, enthusiasm: l})} className={`${formData.enthusiasm >= l ? 'text-yellow-400' : 'text-slate-300'} hover:scale-110 transition`}><Heart size={18} fill="currentColor"/></button>
                     ))}
                  </div>
               </div>
+              
+              {/* Metadatos (Empresa, Link, Salario) */}
               <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500 font-medium">
                  <div className="flex items-center gap-1"><Building2 size={16} className="text-slate-400"/><input name="company" value={formData.company} onChange={handleChange} className={`font-bold text-slate-700 w-40 ${inputDisguise}`}/></div>
                  <div className="h-4 w-px bg-slate-300"></div>
@@ -153,6 +158,8 @@ export default function JobModal({ job, isOpen, onClose, onSave, initialTab = 'a
                  {formData.job_link && (<a href={formData.job_link} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-blue-600 hover:underline bg-blue-50 px-2 py-1 rounded-full text-xs font-bold"><LinkIcon size={12}/> Ver Oferta <ExternalLink size={10}/></a>)}
               </div>
            </div>
+           
+           {/* Estado y Cerrar */}
            <div className="flex flex-col items-end gap-3 shrink-0">
               <button onClick={handleCloseAttempt} className="absolute top-4 right-4 text-slate-400 hover:text-slate-800"><X size={28}/></button>
               <div className="mt-8 md:mt-0"><select name="status" value={formData.status} onChange={handleChange} className="bg-slate-900 text-white font-bold py-2 px-4 rounded-lg text-sm cursor-pointer hover:bg-slate-800 outline-none border-4 border-slate-100 shadow-lg"><option>Prospecto</option><option>Aplicado</option><option>Entrevista</option><option>Oferta</option><option>Descartado</option></select></div>
@@ -162,7 +169,7 @@ export default function JobModal({ job, isOpen, onClose, onSave, initialTab = 'a
         {/* --- MAIN GRID --- */}
         <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
            
-           {/* COLUMNA CENTRAL (2/3) - LA CARNE */}
+           {/* COLUMNA CENTRAL (2/3) - ESTRATEGIA Y TÁCTICA */}
            <div className="lg:col-span-2 space-y-8">
               
               {/* 1. RESUMEN EJECUTIVO (IA) */}
