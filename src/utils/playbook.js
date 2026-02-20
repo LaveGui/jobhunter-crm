@@ -1,31 +1,26 @@
-// ESTRATEGIA DE SEGUIMIENTO (Tu "Playbook")
-// Day: Días después de aplicar (date_applied)
-// Action: Tipo de actividad requerida (debe coincidir con los tipos del JobModal)
-// Label: Lo que te dirá el sistema que hagas
-
 export const PLAYBOOK = [
   {
-    day: 2, // 2 días después de aplicar
-    action: 'message', // Tipo de log esperado
-    label: '🔍 Buscar y conectar en LinkedIn',
-    description: 'Busca al Hiring Manager o Peers y conecta con nota.'
+    day: 2,
+    action: 'visit', 
+    label: '🔍 Mapeo de Cuenta',
+    description: 'Busca a RRHH, Peers y Hiring Manager. Mírales el perfil.'
   },
   {
-    day: 5,
+    day: 3,
+    action: 'connect',
+    label: '🤝 Networking',
+    description: 'Envía solicitudes de conexión a los perfiles que visitaste.'
+  },
+  {
+    day: 6,
     action: 'message',
-    label: '👋 Enviar mensaje de seguimiento',
-    description: 'Si aceptaron conexión, envía mensaje agradeciendo.'
+    label: '👔 Ataque Directo',
+    description: 'Si aceptaron, envía un Mensaje usando tus borradores.'
   },
   {
     day: 10,
     action: 'email',
-    label: '📧 Enviar Email de valor',
-    description: 'Consigue el email y envía una propuesta o portfolio.'
-  },
-  {
-    day: 15,
-    action: 'call',
-    label: '📞 Llamada / Contacto final',
-    description: 'Intento final o marcar para revisión.'
+    label: '📧 Follow Up',
+    description: 'Consigue el email y haz seguimiento cruzado.'
   }
 ];
