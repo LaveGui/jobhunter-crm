@@ -5,7 +5,7 @@ import {
   MessageSquare, StickyNote, Euro, Building2, MapPin, 
   ExternalLink, BrainCircuit, ListChecks, Gift, Cpu, 
   Palette, Phone, Mail, Send, Copy, Check, FileText, X, Zap,
-  ChevronDown, ChevronUp // <--- Importamos flechas para desplegables
+  ChevronDown, ChevronUp
 } from 'lucide-react'; 
 
 export default function JobPage({ jobs, onSave, pendingTasks = [] }) {
@@ -18,8 +18,8 @@ export default function JobPage({ jobs, onSave, pendingTasks = [] }) {
   const [isSaving, setIsSaving] = useState(false);
   
   // UI States
-  const [showRawDesc, setShowRawDesc] = useState(false); // Para oferta original
-  const [showDetails, setShowDetails] = useState(false); // Para requisitos/beneficios (cerrado por defecto)
+  const [showRawDesc, setShowRawDesc] = useState(false); 
+  const [showDetails, setShowDetails] = useState(false); 
   const [contactView, setContactView] = useState('list');
   const [draftCopied, setDraftCopied] = useState(false); 
 
@@ -44,7 +44,7 @@ export default function JobPage({ jobs, onSave, pendingTasks = [] }) {
         ai_summary: job.ai_summary || '', 
         ai_requirements: job.ai_requirements || '', 
         ai_benefits: job.ai_benefits || '',
-        cv_text: job.cv_text || '' // <--- RECUPERADO ESTADO DEL CV
+        cv_text: job.cv_text || '' 
       });
     }
   }, [job]);
@@ -98,6 +98,13 @@ export default function JobPage({ jobs, onSave, pendingTasks = [] }) {
     return logsToShow;
   };
 
+  // --- SOLUCIÓN: FUNCIÓN RESTAURADA ---
+  const getTechBadges = () => {
+    if (!formData?.tech_stack) return [];
+    return formData.tech_stack.split(',').map(t => t.trim()).filter(t => t.length > 0);
+  };
+  // ------------------------------------
+
   const actionMap = { visit: '👁️ Visitar Perfil', connect: '🤝 Conectar', message: '👔 Mensaje', email: '📧 Email', call: '📞 Llamada' };
   const inputDisguise = "bg-transparent border border-transparent hover:border-slate-300 hover:bg-white focus:bg-white focus:border-blue-500 rounded px-1 transition-all outline-none";
 
@@ -147,7 +154,7 @@ export default function JobPage({ jobs, onSave, pendingTasks = [] }) {
                  <h3 className="text-purple-900 font-bold text-sm flex items-center gap-2 mb-3"><BrainCircuit size={18}/> Análisis Inteligente</h3>
                  <p className="text-slate-800 leading-relaxed text-sm">{formData.ai_summary || <span className="text-slate-400 italic">... Esperando datos de Sheets ...</span>}</p>
                  
-                 {/* RESTAURADO 1: REQUISITOS Y BENEFICIOS DESPLEGABLE */}
+                 {/* REQUISITOS Y BENEFICIOS DESPLEGABLE */}
                  <div className="mt-6 border border-purple-200/50 rounded-xl overflow-hidden bg-white/50">
                     <button onClick={() => setShowDetails(!showDetails)} className="w-full p-3 flex justify-between items-center hover:bg-purple-100/50 transition-colors">
                        <div className="flex items-center gap-2 font-bold text-purple-800 text-xs uppercase">
@@ -230,7 +237,7 @@ export default function JobPage({ jobs, onSave, pendingTasks = [] }) {
                  </div>
               </div>
 
-              {/* RESTAURADO 2: OFERTA COMPLETA DESPLEGABLE */}
+              {/* OFERTA COMPLETA DESPLEGABLE */}
               <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                  <button onClick={() => setShowRawDesc(!showRawDesc)} className="text-sm font-bold text-slate-500 flex items-center gap-2 hover:text-blue-600 transition-colors w-full justify-between">
                     <div className="flex items-center gap-2"><FileText size={18}/> Descripción Original de la Oferta</div>
@@ -257,7 +264,7 @@ export default function JobPage({ jobs, onSave, pendingTasks = [] }) {
                  {formData.tech_stack ? (<div className="flex flex-wrap gap-2">{getTechBadges().map((t, i) => (<span key={i} className="px-2 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded border border-slate-200">{t}</span>))}</div>) : <span className="text-xs text-slate-300 italic">Sin datos...</span>}
               </div>
 
-              {/* RESTAURADO 3: CV STATUS & TEXTO DEL CV */}
+              {/* CV STATUS & TEXTO DEL CV */}
               <div className="bg-white border border-indigo-100 p-5 rounded-xl shadow-sm flex flex-col">
                  <div className="flex justify-between items-center mb-4 pb-3 border-b border-indigo-50">
                     <h3 className="font-bold text-indigo-900 text-sm flex items-center gap-2"><Palette size={16}/> Adaptación de CV</h3>
