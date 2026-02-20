@@ -1,49 +1,46 @@
 import { useState, useEffect } from 'react';
-import { X, Save, RotateCcw, Clock, MessageSquare, Phone, Mail, StickyNote, Key } from 'lucide-react'; // <--- Icono Key
+import { X, Save, RotateCcw, Clock, MessageSquare, Phone, Mail, StickyNote, Key } from 'lucide-react';
 import { PLAYBOOK as DEFAULT_PLAYBOOK } from '../utils/playbook';
 
 export default function StrategyModal({ isOpen, onClose, onSave }) {
   const [rules, setRules] = useState([]);
-  const [apiKey, setApiKey] = useState(''); // <--- Estado para la API Key
+  const [apiKey, setApiKey] = useState('');
 
   // Cargar datos al abrir
   useEffect(() => {
     if (isOpen) {
-      // Cargar Estrategia
       const savedRules = localStorage.getItem('jobhunter_playbook');
       if (savedRules) {
         setRules(JSON.parse(savedRules));
       } else {
         setRules(DEFAULT_PLAYBOOK);
       }
-
-      // Cargar API Key
       const savedKey = localStorage.getItem('gemini_api_key');
       if (savedKey) setApiKey(savedKey);
     }
   }, [isOpen]);
 
+  // FIX: Edición Inmutable estricta para que React refresque el input
   const handleDayChange = (index, value) => {
-    const newRules = [...rules];
-    newRules[index].day = Number(value);
+    const newRules = rules.map((r, i) => 
+      i === index ? { ...r, day: Number(value) } : r
+    );
     setRules(newRules);
   };
 
+  // FIX: Toggle Inmutable
   const toggleRule = (index) => {
-    const newRules = [...rules];
-    newRules[index].enabled = newRules[index].enabled === undefined ? false : !newRules[index].enabled;
+    const newRules = rules.map((r, i) => 
+      i === index ? { ...r, enabled: r.enabled === false ? true : false } : r
+    );
     setRules(newRules);
   };
 
   const handleSave = () => {
-    // Guardar Estrategia
     localStorage.setItem('jobhunter_playbook', JSON.stringify(rules));
-    
-    // Guardar API Key
     if (apiKey.trim()) {
       localStorage.setItem('gemini_api_key', apiKey.trim());
     }
-
     onSave(rules);
     onClose();
     alert("✅ Configuración guardada correctamente.");
@@ -80,7 +77,6 @@ export default function StrategyModal({ isOpen, onClose, onSave }) {
 
         <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
           
-          {/* SECCIÓN 1: API KEY */}
           <div className="bg-slate-800 p-4 rounded-lg border border-slate-700">
              <h3 className="text-sm font-bold text-yellow-400 mb-3 flex items-center gap-2">
                <Key size={16}/> Gemini API Key (IA)
@@ -94,12 +90,11 @@ export default function StrategyModal({ isOpen, onClose, onSave }) {
                  className="w-full bg-slate-950 border border-slate-600 rounded p-2 text-sm text-white focus:border-yellow-400 outline-none"
                />
                <p className="text-[10px] text-slate-400">
-                 Necesaria para analizar ofertas automáticamente. Consíguela en <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-blue-400 underline">Google AI Studio</a>.
+                 Opcional. Configúrala solo si usas CV Studio.
                </p>
              </div>
           </div>
 
-          {/* SECCIÓN 2: ESTRATEGIA */}
           <div>
             <h3 className="text-sm font-bold text-slate-300 mb-3 flex items-center gap-2">
                ⏱️ Cadencia de Seguimiento
@@ -111,7 +106,7 @@ export default function StrategyModal({ isOpen, onClose, onSave }) {
                     type="checkbox" 
                     checked={rule.enabled !== false} 
                     onChange={() => toggleRule(idx)}
-                    className="w-4 h-4 rounded border-slate-500 bg-slate-700"
+                    className="w-4 h-4 rounded border-slate-500 bg-slate-700 cursor-pointer"
                   />
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-0.5">
@@ -137,12 +132,12 @@ export default function StrategyModal({ isOpen, onClose, onSave }) {
         </div>
 
         <div className="p-4 border-t border-slate-700 bg-slate-950 flex justify-between">
-          <button onClick={handleReset} className="px-4 py-2 text-slate-400 hover:text-white text-xs font-bold flex items-center gap-2">
+          <button onClick={handleReset} className="px-4 py-2 text-slate-400 hover:text-white text-xs font-bold flex items-center gap-2 transition-colors">
             <RotateCcw size={14}/> Resetear
           </button>
           <div className="flex gap-2">
             <button onClick={onClose} className="px-4 py-2 text-slate-300 hover:text-white font-bold text-sm">Cancelar</button>
-            <button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-bold text-sm flex items-center gap-2 shadow-lg shadow-blue-900/20">
+            <button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-bold text-sm flex items-center gap-2 shadow-lg shadow-blue-900/20 transition-colors">
               <Save size={16}/> Guardar Todo
             </button>
           </div>
