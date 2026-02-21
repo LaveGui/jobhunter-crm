@@ -72,8 +72,14 @@ export default function StrategyModal({ isOpen, onClose, onSave }) {
                   </div>
                   <div className="flex items-center gap-1 bg-slate-950 p-1.5 rounded border border-slate-700">
                     <Clock size={10} className="text-slate-500"/>
-                    <input type="number" value={rule.day} onChange={(e) => handleDayChange(idx, e.target.value)} className="w-8 bg-transparent text-center font-bold text-sm outline-none border-b border-slate-600 focus:border-blue-500"/>
-                    <span className="text-[9px] text-slate-500">días</span>
+                    <span className="text-[10px] text-slate-400 font-medium ml-1 hidden sm:inline">Esperar</span>
+                    <input 
+                      type="number" 
+                      value={rule.day} 
+                      onChange={(e) => handleDayChange(idx, e.target.value)}
+                      className="w-8 bg-transparent text-center font-bold text-sm outline-none border-b border-slate-600 focus:border-blue-500"
+                    />
+                    <span className="text-[10px] text-slate-400 font-medium">días</span>
                   </div>
                 </div>
               ))}
