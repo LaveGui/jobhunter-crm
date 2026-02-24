@@ -5,7 +5,7 @@ import {
   MessageSquare, StickyNote, Euro, Building2, MapPin, 
   ExternalLink, BrainCircuit, ListChecks, Gift, Cpu, 
   Palette, Phone, Mail, Send, Copy, Check, FileText, X, Zap,
-  ChevronDown, ChevronUp, Edit2, Calendar, Milestone // Nuevos iconos
+  ChevronDown, ChevronUp, Edit2, Calendar, Milestone
 } from 'lucide-react'; 
 
 export default function JobPage({ jobs, onSave, pendingTasks = [] }) {
@@ -21,12 +21,12 @@ export default function JobPage({ jobs, onSave, pendingTasks = [] }) {
   const [showDetails, setShowDetails] = useState(false); 
   const [contactView, setContactView] = useState('list');
   const [draftCopied, setDraftCopied] = useState(false); 
-  const [editingContactIdx, setEditingContactIdx] = useState(null); // Saber qué contacto editamos
+  const [editingContactIdx, setEditingContactIdx] = useState(null); 
 
   const [logType, setLogType] = useState('note');
   const [logContact, setLogContact] = useState('');
   const [logMessage, setLogMessage] = useState('');
-  const [logDate, setLogDate] = useState(''); // Para agendar entrevistas
+  const [logDate, setLogDate] = useState(''); 
 
   const [newContact, setNewContact] = useState({ name: '', role: 'Recruiter', linkedin: '', email: '', phone: '' });
 
@@ -40,7 +40,7 @@ export default function JobPage({ jobs, onSave, pendingTasks = [] }) {
         activity_log: typeof job.activity_log === 'string' ? JSON.parse(job.activity_log || '[]') : (job.activity_log || []),
         enthusiasm: Number(job.enthusiasm) || 3,
         notes: job.notes || '', 
-        interview_process: job.interview_process || '', // NUEVO CAMPO
+        interview_process: job.interview_process || '', 
         tech_stack: job.tech_stack || '', 
         message_drafts: job.message_drafts || '', 
         ai_summary: job.ai_summary || '', 
@@ -70,7 +70,8 @@ export default function JobPage({ jobs, onSave, pendingTasks = [] }) {
     if (!logMessage && logType !== 'interview') return;
     if (logType === 'interview' && !logDate) return alert("Selecciona la fecha de la entrevista");
 
-    const icons = { note: '📝', visit: '👁️', connect: '🤝', message: '👔', email: '📧', call: '📞', viewed_me: '👀', interview: '📅', feedback: '🗣️' };
+    // Añadido el icono para "called_me"
+    const icons = { note: '📝', visit: '👁️', connect: '🤝', message: '👔', email: '📧', call: '📞', viewed_me: '👀', called_me: '📞', interview: '📅', feedback: '🗣️' };
     
     const newLog = { 
       date: new Date().toLocaleString('es-ES'), 
@@ -78,10 +79,9 @@ export default function JobPage({ jobs, onSave, pendingTasks = [] }) {
       text: logType === 'interview' ? `Agendada para: ${logDate} | ${logMessage}` : logMessage, 
       contact: logContact, 
       icon: icons[logType] || '📝',
-      scheduledDate: logType === 'interview' ? logDate : null // Guardamos la fecha futura para el motor
+      scheduledDate: logType === 'interview' ? logDate : null 
     };
 
-    // Si agendamos entrevista, cambiamos el status a "Entrevista"
     let newStatus = formData.status;
     if (logType === 'interview') newStatus = 'Entrevista';
 
@@ -94,9 +94,9 @@ export default function JobPage({ jobs, onSave, pendingTasks = [] }) {
     if (!newContact.name) return;
     const updatedContacts = [...formData.contacts];
     if (editingContactIdx !== null) {
-      updatedContacts[editingContactIdx] = newContact; // Actualizar
+      updatedContacts[editingContactIdx] = newContact;
     } else {
-      updatedContacts.push(newContact); // Añadir nuevo
+      updatedContacts.push(newContact);
     }
     setFormData({ ...formData, contacts: updatedContacts });
     setNewContact({ name: '', role: 'Recruiter', linkedin: '', email: '', phone: '' });
@@ -218,7 +218,7 @@ export default function JobPage({ jobs, onSave, pendingTasks = [] }) {
                  
                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
                     <div className="text-xs font-bold text-slate-400 uppercase mb-2">Acciones Proactivas</div>
-                    <div className="flex gap-2 mb-3 overflow-x-auto pb-2">
+                    <div className="flex gap-2 mb-3 overflow-x-auto pb-2 custom-scrollbar">
                        <button onClick={() => setLogType('note')} className={`px-3 py-1.5 rounded text-xs font-bold whitespace-nowrap transition-all border ${logType === 'note' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600 hover:bg-slate-100'}`}>📝 Nota</button>
                        <button onClick={() => setLogType('visit')} className={`px-3 py-1.5 rounded text-xs font-bold whitespace-nowrap transition-all border ${logType === 'visit' ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-slate-600 hover:bg-purple-50'}`}>👁️ Visitar</button>
                        <button onClick={() => setLogType('connect')} className={`px-3 py-1.5 rounded text-xs font-bold whitespace-nowrap transition-all border ${logType === 'connect' ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-slate-600 hover:bg-teal-50'}`}>🤝 Conectar</button>
@@ -227,8 +227,11 @@ export default function JobPage({ jobs, onSave, pendingTasks = [] }) {
                     </div>
                     
                     <div className="text-xs font-bold text-slate-400 uppercase mb-2 border-t border-slate-200 pt-2">Eventos y Entrevistas</div>
-                    <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
+                    <div className="flex gap-2 mb-4 overflow-x-auto pb-2 custom-scrollbar">
                        <button onClick={() => setLogType('viewed_me')} className={`px-3 py-1.5 rounded text-xs font-bold whitespace-nowrap transition-all border ${logType === 'viewed_me' ? 'bg-pink-600 text-white border-pink-600' : 'bg-white text-slate-600 hover:bg-pink-50'}`}>👀 Me visitó</button>
+                       {/* NUEVO BOTON: ME LLAMARON */}
+                       <button onClick={() => setLogType('called_me')} className={`px-3 py-1.5 rounded text-xs font-bold whitespace-nowrap transition-all border ${logType === 'called_me' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-indigo-600 hover:bg-indigo-50'}`}>📞 Me llamaron</button>
+                       
                        <button onClick={() => setLogType('interview')} className={`px-3 py-1.5 rounded text-xs font-bold whitespace-nowrap transition-all border ${logType === 'interview' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-emerald-600 hover:bg-emerald-50'}`}>📅 Agendar Entrevista</button>
                        <button onClick={() => setLogType('feedback')} className={`px-3 py-1.5 rounded text-xs font-bold whitespace-nowrap transition-all border ${logType === 'feedback' ? 'bg-orange-600 text-white border-orange-600' : 'bg-white text-orange-600 hover:bg-orange-50'}`}>🗣️ Feedback</button>
                     </div>
@@ -241,7 +244,6 @@ export default function JobPage({ jobs, onSave, pendingTasks = [] }) {
                           </select>
                       )}
                       
-                      {/* CAMPO DE FECHA PARA ENTREVISTAS */}
                       {logType === 'interview' && (
                          <div className="flex items-center gap-2 bg-emerald-50 p-2 rounded border border-emerald-200">
                             <Calendar size={16} className="text-emerald-600"/>
@@ -251,7 +253,7 @@ export default function JobPage({ jobs, onSave, pendingTasks = [] }) {
                       )}
 
                       <div className="flex gap-2">
-                         <textarea value={logMessage} onChange={(e) => setLogMessage(e.target.value)} onKeyDown={(e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleLogSubmit(); }}} className="flex-1 bg-white border border-slate-200 rounded-lg p-3 text-sm outline-none focus:border-blue-500 transition-colors resize-none h-16" placeholder={logType === 'interview' ? "Detalles de la reunión (Link, notas...)" : "Detalles de la acción..."}/>
+                         <textarea value={logMessage} onChange={(e) => setLogMessage(e.target.value)} onKeyDown={(e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleLogSubmit(); }}} className="flex-1 bg-white border border-slate-200 rounded-lg p-3 text-sm outline-none focus:border-blue-500 transition-colors resize-none h-16" placeholder={logType === 'interview' ? "Detalles de la reunión (Link, notas...)" : logType === 'called_me' ? "De qué hablaron..." : "Detalles de la acción..."}/>
                          <button onClick={handleLogSubmit} className="bg-slate-900 hover:bg-slate-800 text-white px-5 rounded-lg transition-colors flex items-center justify-center"><Send size={20}/></button>
                       </div>
                     </div>
@@ -261,7 +263,10 @@ export default function JobPage({ jobs, onSave, pendingTasks = [] }) {
                        <div key={idx} className={`relative ${log.isVirtual ? 'opacity-75' : ''}`}>
                           <div className="absolute -left-[41px] top-0 w-8 h-8 rounded-full border-4 border-white flex items-center justify-center text-sm shadow-sm bg-slate-100 z-10">{log.icon}</div>
                           <div className="flex items-baseline justify-between mb-1">
-                             <div className="font-bold text-slate-700 text-sm">{log.type === 'apply' ? 'Postulado' : log.type === 'viewed_me' ? 'Vieron mi perfil' : log.type.toUpperCase()} <span className="text-slate-400 font-normal text-xs ml-1">{log.contact ? `con ${log.contact}` : ''}</span></div>
+                             <div className="font-bold text-slate-700 text-sm">
+                               {log.type === 'apply' ? 'Postulado' : log.type === 'viewed_me' ? 'Vieron mi perfil' : log.type === 'called_me' ? 'Me llamaron' : log.type.toUpperCase()} 
+                               <span className="text-slate-400 font-normal text-xs ml-1">{log.contact ? `con ${log.contact}` : ''}</span>
+                             </div>
                              <span className="text-[10px] text-slate-400">{log.date}</span>
                           </div>
                           <div className="text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100 whitespace-pre-wrap">{log.text}</div>
@@ -279,30 +284,28 @@ export default function JobPage({ jobs, onSave, pendingTasks = [] }) {
               </div>
            </div>
 
-           {/* LADO DERECHO (1/3) */}
+           {/* LADO DERECHO (1/3) - ORDEN ACTUALIZADO */}
            <div className="space-y-6">
               
+              {/* 1. Tech Stack */}
               <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm">
                  <h4 className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2"><Cpu size={14}/> Tech Stack</h4>
                  {formData.tech_stack ? (<div className="flex flex-wrap gap-2">{getTechBadges().map((t, i) => (<span key={i} className="px-2 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded border border-slate-200">{t}</span>))}</div>) : <span className="text-xs text-slate-300 italic">Sin datos...</span>}
               </div>
 
-              <div className="bg-white border border-indigo-100 p-5 rounded-xl shadow-sm flex flex-col">
-                 <div className="flex justify-between items-center mb-4 pb-3 border-b border-indigo-50">
-                    <h3 className="font-bold text-indigo-900 text-sm flex items-center gap-2"><Palette size={16}/> Adaptación de CV</h3>
-                    {formData.date_applied ? <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded">ENVIADO</span> : <span className="bg-slate-100 text-slate-500 text-[10px] font-bold px-2 py-0.5 rounded">PENDIENTE</span>}
-                 </div>
-                 <button onClick={() => navigate('/cv', { state: { jobContext: formData } })} className="w-full py-2 bg-indigo-50 text-indigo-700 font-bold text-xs rounded hover:bg-indigo-100 transition-colors mb-2">{formData.id ? '🖊️ Ir al CV Studio' : '💾 Guardar para Editar'}</button>
-                 {!formData.date_applied && <button onClick={markAsApplied} className="w-full py-2 bg-indigo-600 text-white font-bold text-xs rounded hover:bg-indigo-700 transition-colors">Marcar como Enviado</button>}
+              {/* 2. Notas */}
+              <div className="bg-yellow-50 border border-yellow-200 p-5 rounded-xl shadow-sm">
+                 <label className="text-yellow-800 font-bold text-xs uppercase mb-2 flex items-center gap-2"><StickyNote size={14}/> Mis Notas Personales</label>
+                 <textarea name="notes" value={formData.notes} onChange={handleChange} className="w-full bg-white border-0 rounded-lg p-3 text-sm text-slate-800 h-32 focus:ring-2 focus:ring-yellow-400 outline-none resize-none placeholder-yellow-800/30"/>
               </div>
 
-              {/* ETAPAS DEL PROCESO */}
+              {/* 3. Etapas del Proceso */}
               <div className="bg-emerald-50 border border-emerald-200 p-5 rounded-xl shadow-sm">
                  <label className="text-emerald-800 font-bold text-xs uppercase mb-2 flex items-center gap-2"><Milestone size={14}/> Proceso de Entrevistas</label>
                  <textarea name="interview_process" value={formData.interview_process} onChange={handleChange} className="w-full bg-white border-0 rounded-lg p-3 text-sm text-slate-800 h-24 focus:ring-2 focus:ring-emerald-400 outline-none resize-none placeholder-emerald-800/30" placeholder="Ej: 1. RRHH (Filtro) -> 2. Técnica -> 3. Cultural..."/>
               </div>
 
-              {/* CONTACTOS CON EDICIÓN */}
+              {/* 4. Contactos */}
               <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm">
                  <div className="flex justify-between items-center mb-3 pb-2 border-b border-slate-100">
                     <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2"><UserPlus size={14}/> Contactos ({formData.contacts.length})</h4>
@@ -340,16 +343,22 @@ export default function JobPage({ jobs, onSave, pendingTasks = [] }) {
                  </div>
               </div>
 
+              {/* 5. Adaptación de CV */}
+              <div className="bg-white border border-indigo-100 p-5 rounded-xl shadow-sm flex flex-col">
+                 <div className="flex justify-between items-center mb-4 pb-3 border-b border-indigo-50">
+                    <h3 className="font-bold text-indigo-900 text-sm flex items-center gap-2"><Palette size={16}/> Adaptación de CV</h3>
+                    {formData.date_applied ? <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded">ENVIADO</span> : <span className="bg-slate-100 text-slate-500 text-[10px] font-bold px-2 py-0.5 rounded">PENDIENTE</span>}
+                 </div>
+                 <button onClick={() => navigate('/cv', { state: { jobContext: formData } })} className="w-full py-2 bg-indigo-50 text-indigo-700 font-bold text-xs rounded hover:bg-indigo-100 transition-colors mb-2">{formData.id ? '🖊️ Ir al CV Studio' : '💾 Guardar para Editar'}</button>
+                 {!formData.date_applied && <button onClick={markAsApplied} className="w-full py-2 bg-indigo-600 text-white font-bold text-xs rounded hover:bg-indigo-700 transition-colors">Marcar como Enviado</button>}
+              </div>
+
+              {/* 6. Borradores LinkedIn */}
               <div className="bg-blue-50 border border-blue-200 p-5 rounded-xl shadow-sm relative group">
                  <div className="flex justify-between items-center mb-2">
                     <label className="text-blue-800 font-bold text-xs uppercase flex items-center gap-2"><MessageSquare size={14}/> Borradores LinkedIn</label>
                  </div>
                  <textarea name="message_drafts" value={formData.message_drafts} onChange={handleChange} className="w-full bg-white border-0 rounded-lg p-3 text-sm text-slate-700 h-40 focus:ring-2 focus:ring-blue-400 outline-none resize-none placeholder-blue-300"/>
-              </div>
-
-              <div className="bg-yellow-50 border border-yellow-200 p-5 rounded-xl shadow-sm">
-                 <label className="text-yellow-800 font-bold text-xs uppercase mb-2 flex items-center gap-2"><StickyNote size={14}/> Mis Notas Personales</label>
-                 <textarea name="notes" value={formData.notes} onChange={handleChange} className="w-full bg-white border-0 rounded-lg p-3 text-sm text-slate-800 h-32 focus:ring-2 focus:ring-yellow-400 outline-none resize-none placeholder-yellow-800/30"/>
               </div>
 
            </div>
