@@ -178,10 +178,10 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 font-sans text-slate-900 flex flex-col h-screen overflow-hidden">
+    <div className="min-h-screen bg-slate-100 font-sans text-slate-900 flex flex-col">
       <Routes>
         <Route path="/" element={
-          <div className="flex flex-col h-full overflow-hidden">
+          <div className="flex flex-col h-screen overflow-hidden">
             {/* HEADER RESPONSIVO Y GAMIFICADO */}
             <header className="bg-slate-900 text-white p-3 md:p-4 shadow-lg shrink-0 z-20">
               <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
