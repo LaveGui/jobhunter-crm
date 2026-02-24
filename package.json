@@ -16,6 +16,7 @@
     "@google/generative-ai": "^0.24.1",
     "@hello-pangea/dnd": "^18.0.1",
     "@tailwindcss/postcss": "^4.1.18",
+    "canvas-confetti": "^1.9.4",
     "html2pdf.js": "^0.14.0",
     "lucide-react": "^0.564.0",
     "react": "^19.2.0",
