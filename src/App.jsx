@@ -72,15 +72,19 @@ useEffect(() => {
     }
   }, [jobs, activePlaybook, searchTerm, sortBy]);
 
-  // --- MOTOR DE GAMIFICACIÓN ---
-  const { xp, levelInfo, streak } = useMemo(() => {
+
+// --- MOTOR DE GAMIFICACIÓN ---
+  const { xp, levelInfo, streak, jobXpMap } = useMemo(() => {
     let totalXP = 0;
     const activeDates = new Set();
+    const xpMap = {}; // NUEVO: Mapa para guardar los puntos por cada tarjeta
 
     jobs.forEach(job => {
+      let jobXP = 0;
+      
       // XP por Status
-      if (job.status === 'Entrevista') totalXP += 100;
-      if (job.status === 'Oferta') totalXP += 300;
+      if (job.status === 'Entrevista') jobXP += 100;
+      if (job.status === 'Oferta') jobXP += 300;
 
       let logs = [];
       try { logs = typeof job.activity_log === 'string' ? JSON.parse(job.activity_log) : job.activity_log; } catch(e){}
@@ -88,11 +92,12 @@ useEffect(() => {
       if (logs && logs.length > 0) {
         logs.forEach(log => {
           // XP por Esfuerzo Proactivo
-          if (log.type === 'note') totalXP += 5;
-          if (log.type === 'apply') totalXP += 10;
-          if (log.type === 'visit') totalXP += 15;
-          if (log.type === 'connect') totalXP += 20;
-          if (log.type === 'message' || log.type === 'email' || log.type === 'call') totalXP += 30;
+          if (log.type === 'note') jobXP += 5;
+          if (log.type === 'apply') jobXP += 10;
+          if (log.type === 'visit') jobXP += 15;
+          if (log.type === 'connect' || log.type === 'called_me') jobXP += 20;
+          if (log.type === 'message' || log.type === 'email' || log.type === 'call') jobXP += 30;
+          if (log.type === 'interview') jobXP += 100; // Agendarla suma!
 
           // Recopilamos fechas para calcular la racha
           if (log.date) {
@@ -101,6 +106,9 @@ useEffect(() => {
           }
         });
       }
+      
+      xpMap[job.id] = jobXP; // Guardamos los puntos de esta oferta
+      totalXP += jobXP; // Sumamos al global
     });
 
     // Niveles
@@ -126,18 +134,16 @@ useEffect(() => {
         if (dates.includes(refDate.getTime())) {
             currentStreak++;
         } else if (refDate.getDay() !== 0 && refDate.getDay() !== 6) {
-            // Es un día de semana y no hay registro. ¿Rompimos la racha?
-            // Si es "hoy" perdonamos (porque a lo mejor aún no has entrado)
             if (refDate.getTime() !== today) break;
         }
         refDate.setDate(refDate.getDate() - 1);
         refDate.setHours(0,0,0,0);
-        if (currentStreak > 365) break; // Límite de seguridad
+        if (currentStreak > 365) break; 
       }
       return currentStreak;
     };
 
-    return { xp: totalXP, levelInfo: getLevel(totalXP), streak: calculateStreak() };
+    return { xp: totalXP, levelInfo: getLevel(totalXP), streak: calculateStreak(), jobXpMap: xpMap };
   }, [jobs]);
 
   const formatDateShort = (d) => { if (!d) return null; try { return new Date(d).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }); } catch { return d; } };
