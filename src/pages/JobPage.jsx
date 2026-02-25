@@ -245,12 +245,17 @@ export default function JobPage({ jobs, onSave, pendingTasks = [] }) {
                       )}
                       
                       {logType === 'interview' && (
-                         <div className="flex items-center gap-2 bg-emerald-50 p-2 rounded border border-emerald-200">
-                            <Calendar size={16} className="text-emerald-600"/>
-                            <input type="date" value={logDate} onChange={(e) => setLogDate(e.target.value)} className="bg-transparent text-sm text-emerald-900 outline-none font-bold" />
-                            <span className="text-xs text-emerald-600">Día de la entrevista</span>
-                         </div>
-                      )}
+   <label className="flex items-center gap-2 bg-emerald-50 p-3 rounded-lg border border-emerald-200 cursor-pointer shadow-sm">
+      <Calendar size={18} className="text-emerald-600 shrink-0"/>
+      <span className="text-xs text-emerald-700 font-medium shrink-0">Fecha:</span>
+      <input 
+         type="date" 
+         value={logDate} 
+         onChange={(e) => setLogDate(e.target.value)} 
+         className="flex-1 w-full bg-transparent text-sm text-emerald-900 outline-none font-black min-h-[30px]" 
+      />
+   </label>
+)}
 
                       <div className="flex gap-2">
                          <textarea value={logMessage} onChange={(e) => setLogMessage(e.target.value)} onKeyDown={(e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleLogSubmit(); }}} className="flex-1 bg-white border border-slate-200 rounded-lg p-3 text-sm outline-none focus:border-blue-500 transition-colors resize-none h-16" placeholder={logType === 'interview' ? "Detalles de la reunión (Link, notas...)" : logType === 'called_me' ? "De qué hablaron..." : "Detalles de la acción..."}/>
