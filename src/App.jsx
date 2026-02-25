@@ -199,12 +199,12 @@ useEffect(() => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 font-sans text-slate-900 flex flex-col">
+<div className="min-h-screen bg-slate-100 font-sans text-slate-900 flex flex-col">
       <Routes>
         <Route path="/" element={
           <div className="flex flex-col h-screen overflow-hidden">
             {/* HEADER RESPONSIVO Y GAMIFICADO */}
-            <header className="bg-slate-900 text-white p-3 md:p-4 shadow-lg shrink-0 z-20">
+            <header className="bg-slate-900 text-white p-3 md:p-4 shadow-lg shrink-0 z-20 relative">
               <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
                 
                 {/* Logo & Gamificación */}
@@ -219,10 +219,27 @@ useEffect(() => {
                           <span className={streak > 0 ? "text-orange-400" : "text-slate-500"}>{streak}</span>
                       </div>
                       <div className="w-px h-4 bg-slate-600"></div>
-                      <div className="flex items-center gap-1.5 text-blue-300 font-bold text-xs md:text-sm" title={`Nivel ${levelInfo.level}`}>
+                      
+                      {/* TOOLTIP DE XP: Al pasar el ratón se despliega la guía */}
+                      <div className="relative group flex items-center gap-1.5 text-blue-300 font-bold text-xs md:text-sm cursor-help">
                           <Trophy size={14} className="text-yellow-400" />
                           <span>{xp} XP</span>
                           <span className="hidden md:inline text-slate-400 font-normal ml-1">- {levelInfo.name}</span>
+                          
+                          {/* Menú Flotante de XP */}
+                          <div className="absolute top-full right-0 md:left-0 mt-3 w-48 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl p-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                             <div className="absolute -top-2 left-4 md:left-10 w-4 h-4 bg-slate-800 border-t border-l border-slate-600 transform rotate-45"></div>
+                             <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-wider border-b border-slate-700 pb-1 mb-2">Puntos de Esfuerzo</h4>
+                             <ul className="text-[11px] text-slate-300 space-y-1.5 font-normal">
+                               <li className="flex justify-between"><span>📝 Nota</span><span className="text-yellow-400 font-bold">+5</span></li>
+                               <li className="flex justify-between"><span>🚀 Postular</span><span className="text-yellow-400 font-bold">+10</span></li>
+                               <li className="flex justify-between"><span>👁️ Visitar RRHH</span><span className="text-yellow-400 font-bold">+15</span></li>
+                               <li className="flex justify-between"><span>🤝 Conectar</span><span className="text-yellow-400 font-bold">+20</span></li>
+                               <li className="flex justify-between"><span>👔 Enviar Mensaje</span><span className="text-yellow-400 font-bold">+30</span></li>
+                               <li className="flex justify-between"><span>📅 Entrevista</span><span className="text-emerald-400 font-bold">+100</span></li>
+                               <li className="flex justify-between"><span>🎉 Oferta</span><span className="text-orange-400 font-bold">+300</span></li>
+                             </ul>
+                          </div>
                       </div>
                   </div>
                 </div>
@@ -259,7 +276,7 @@ useEffect(() => {
             {/* FILTROS RESPONSIVOS */}
             <div className="bg-white border-b border-slate-200 p-3 shadow-sm shrink-0 z-10">
                <div className="max-w-7xl mx-auto flex flex-col md:flex-row gap-3 items-center justify-between">
-                  <div className="relative w-full md:w-96"><Search className="absolute left-3 top-2.5 text-slate-400" size={16} /><input type="text" placeholder="Buscar empresa..." className="w-full pl-9 pr-4 py-1.5 md:py-2 bg-slate-100 rounded-lg border-transparent focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none text-xs md:text-sm transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}/></div>
+                  <div className="relative w-full md:w-96"><Search className="absolute left-3 top-2.5 text-slate-400" size={16} /><input type="text" placeholder="Buscar empresa o contacto..." className="w-full pl-9 pr-4 py-1.5 md:py-2 bg-slate-100 rounded-lg border-transparent focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none text-xs md:text-sm transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}/></div>
                   <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0 hide-scrollbar"><span className="text-[10px] md:text-xs font-bold text-slate-400 uppercase whitespace-nowrap">Ordenar por:</span><button onClick={() => setSortBy('last_updated')} className={`px-2 md:px-3 py-1.5 rounded-full text-[10px] md:text-xs font-bold flex items-center gap-1 whitespace-nowrap ${sortBy === 'last_updated' ? 'bg-blue-100 text-blue-700' : 'text-slate-500 hover:bg-slate-100'}`}><Activity size={12}/> Actividad</button><button onClick={() => setSortBy('enthusiasm')} className={`px-2 md:px-3 py-1.5 rounded-full text-[10px] md:text-xs font-bold flex items-center gap-1 whitespace-nowrap ${sortBy === 'enthusiasm' ? 'bg-yellow-100 text-yellow-700' : 'text-slate-500 hover:bg-slate-100'}`}><Heart size={12}/> Interés</button><button onClick={() => setSortBy('alpha')} className={`px-2 md:px-3 py-1.5 rounded-full text-[10px] md:text-xs font-bold flex items-center gap-1 whitespace-nowrap ${sortBy === 'alpha' ? 'bg-purple-100 text-purple-700' : 'text-slate-500 hover:bg-slate-100'}`}><ArrowDownWideNarrow size={12}/> A-Z</button></div>
               </div>
             </div>
@@ -284,17 +301,35 @@ useEffect(() => {
                                   {(provided, snapshot) => (
                                       <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} style={{ ...provided.draggableProps.style }} onClick={() => handleOpenJob(job.id)} className={`bg-white p-3 md:p-4 rounded-lg border transition-all cursor-pointer group relative hover:shadow-md ${snapshot.isDragging ? 'shadow-2xl ring-2 ring-blue-500 z-50' : 'shadow-sm border-slate-200'} ${Number(job.enthusiasm) === 5 ? 'border-l-4 border-l-yellow-400' : 'hover:border-blue-400'}`}>
                                       {Number(job.enthusiasm) === 5 && (<div className="absolute top-0 right-0 w-full h-1 bg-gradient-to-r from-transparent via-yellow-200 to-transparent opacity-50 rounded-t-lg"></div>)}
+                                      
                                       <h3 className="font-bold text-slate-800 mb-0.5 leading-snug text-xs md:text-sm line-clamp-2">{job.title}</h3>
                                       <p className="text-blue-600 text-[10px] md:text-xs font-bold flex items-center gap-1 mb-2 md:mb-3 truncate"><Building2 size={10}/> {job.company}</p>
+                                      
                                       <div className="space-y-1.5 md:space-y-2">
                                           <div className="flex items-center justify-between text-[9px] md:text-[10px] text-slate-500 font-medium"><div className="flex items-center gap-1.5 md:gap-2"><div className="flex items-center gap-1 bg-slate-50 px-1 md:px-1.5 py-0.5 rounded border border-slate-100"><MapPin size={10}/> {job.location_type || 'Híbrido'}</div>{getContactCount(job) === 0 && (<div className="text-orange-500 bg-orange-50 px-1 md:px-1.5 py-0.5 rounded border border-orange-100 flex items-center gap-1"><UserX size={10}/> <span>0</span></div>)}</div>{job.salary && (<div className="flex items-center gap-1 text-emerald-700 bg-emerald-50 px-1 md:px-1.5 py-0.5 rounded border border-emerald-100"><Euro size={10}/> {formatSalary(job.salary)}</div>)}</div>
+                                          
+                                          {/* SECCIÓN INFERIOR DE LA TARJETA CON XP */}
                                           <div className="flex flex-col gap-1 md:gap-1.5 pt-1.5 md:pt-2 border-t border-slate-50">
-                                              <div className="flex justify-between items-center"><div className="flex gap-0.5">{[...Array(5)].map((_, i) => (<Heart key={i} size={8} className={`md:w-2.5 md:h-2.5 ${i < (Number(job.enthusiasm) || 0) ? "text-yellow-400 fill-yellow-400" : "text-slate-200 fill-slate-200"}`}/>))}</div><div className="text-[9px] md:text-[10px] text-slate-400 flex items-center gap-1"><Clock size={10}/> {formatDateShort(job.last_updated)}</div></div>
+                                              <div className="flex justify-between items-center">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex gap-0.5">{[...Array(5)].map((_, i) => (<Heart key={i} size={8} className={`md:w-2.5 md:h-2.5 ${i < (Number(job.enthusiasm) || 0) ? "text-yellow-400 fill-yellow-400" : "text-slate-200 fill-slate-200"}`}/>))}</div>
+                                                    
+                                                    {/* INSIGNIA XP INDIVIDUAL (Oculta en móviles md:flex) */}
+                                                    {jobXpMap[job.id] > 0 && (
+                                                      <span className="hidden md:flex items-center gap-0.5 text-[9px] font-bold text-yellow-600 bg-yellow-50 px-1 py-0.5 rounded border border-yellow-200" title={`Puntos generados por esta oferta`}>
+                                                         ⭐ {jobXpMap[job.id]} XP
+                                                      </span>
+                                                    )}
+                                                </div>
+                                                <div className="text-[9px] md:text-[10px] text-slate-400 flex items-center gap-1"><Clock size={10}/> {formatDateShort(job.last_updated)}</div>
+                                              </div>
+                                              
                                               {job.date_applied && (<div className="bg-green-50 text-green-700 px-1.5 py-1 rounded border border-green-100 text-[9px] md:text-[10px] font-bold flex items-center justify-center gap-1 md:gap-1.5 mt-0.5"><CalendarCheck size={10}/> Postulado: {formatDateShort(job.date_applied)}</div>)}
                                           </div>
+
                                           {jobTasks.length > 0 && (
-                                            <div className="mt-1 md:mt-2 bg-red-50 border border-red-100 text-red-600 text-[9px] md:text-[10px] font-bold px-1.5 py-1 md:py-1.5 rounded flex items-center gap-1.5">
-                                               <Zap size={10} className="fill-red-600 md:w-3 md:h-3"/> {jobTasks[0].taskLabel}
+                                            <div className="mt-1 md:mt-2 bg-red-50 border border-red-100 text-red-600 text-[10px] font-bold px-2 py-1.5 rounded flex items-center gap-1.5">
+                                               <Zap size={12} className="fill-red-600"/> Seguimiento: {jobTasks[0].taskLabel}
                                             </div>
                                           )}
                                       </div>
