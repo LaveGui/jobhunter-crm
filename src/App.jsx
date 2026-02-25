@@ -44,13 +44,28 @@ export default function App() {
 
   useEffect(() => { const saved = localStorage.getItem('jobhunter_playbook'); if (saved) setActivePlaybook(JSON.parse(saved)); }, []);
   
-  useEffect(() => { 
+useEffect(() => { 
     if (jobs.length > 0) {
       const tasks = calculatePendingTasks(jobs, activePlaybook);
       setPendingTasks(tasks);
       
       const newCols = { 'Prospecto': [], 'Aplicado': [], 'Entrevista': [], 'Oferta': [], 'Descartado': [] };
-      const filteredJobs = jobs.filter(job => (job.company || '').toLowerCase().includes(searchTerm.toLowerCase()) || (job.title || '').toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      // BUSCADOR MEJORADO: Ahora busca por Empresa, Puesto y también CONTACTOS
+      const filteredJobs = jobs.filter(job => {
+        const term = searchTerm.toLowerCase();
+        const matchCompany = (job.company || '').toLowerCase().includes(term);
+        const matchTitle = (job.title || '').toLowerCase().includes(term);
+        
+        let matchContact = false;
+        try {
+          const contactsArray = typeof job.contacts === 'string' ? JSON.parse(job.contacts) : (job.contacts || []);
+          matchContact = contactsArray.some(c => (c.name || '').toLowerCase().includes(term));
+        } catch(e) {}
+
+        return matchCompany || matchTitle || matchContact;
+      });
+
       filteredJobs.forEach(job => { if (newCols[job.status]) newCols[job.status].push(job); else newCols['Prospecto'].push(job); });
       Object.keys(newCols).forEach(col => { newCols[col] = sortJobs(newCols[col]); });
       setColumns(newCols);
