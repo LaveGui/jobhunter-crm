@@ -37,6 +37,7 @@ export default function App() {
   const [showStrategyModal, setShowStrategyModal] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [showTaskPanel, setShowTaskPanel] = useState(false);
+  const [showDiscarded, setShowDiscarded] = useState(false); // <--- NUEVO ESTADO
   
   const [activePlaybook, setActivePlaybook] = useState(DEFAULT_PLAYBOOK);
   const [searchTerm, setSearchTerm] = useState("");
@@ -288,62 +289,78 @@ useEffect(() => {
               {!loading && !error && (
                   <DragDropContext onDragEnd={onDragEnd}>
                   <div className="flex gap-4 md:gap-6 h-full min-w-max mx-auto pb-6">
-                      {Object.keys(columns).map((colId) => (
-                      <Droppable key={colId} droppableId={colId}>
-                          {(provided) => (
-                          <div ref={provided.innerRef} {...provided.droppableProps} className="bg-slate-200/80 rounded-xl p-2 md:p-3 w-72 md:w-80 flex flex-col h-full border border-slate-300/50 backdrop-blur-sm shadow-sm">
-                              <div className="flex justify-between items-center mb-2 md:mb-3 px-1 shrink-0"><div className="flex items-center gap-2"><h2 className="font-bold text-slate-700 uppercase text-[10px] md:text-xs tracking-wider">{colId}</h2><span className="bg-white text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm border border-slate-100">{columns[colId].length}</span></div></div>
-                              <div className="flex-1 overflow-y-auto pr-1 space-y-2 md:space-y-3 custom-scrollbar pb-2">
-                              {columns[colId].map((job, index) => {
-                                  const jobTasks = pendingTasks.filter(t => t.jobId === job.id);
-                                  return (
-                                  <Draggable key={job.id} draggableId={String(job.id)} index={index}>
-                                  {(provided, snapshot) => (
-                                      <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} style={{ ...provided.draggableProps.style }} onClick={() => handleOpenJob(job.id)} className={`bg-white p-3 md:p-4 rounded-lg border transition-all cursor-pointer group relative hover:shadow-md ${snapshot.isDragging ? 'shadow-2xl ring-2 ring-blue-500 z-50' : 'shadow-sm border-slate-200'} ${Number(job.enthusiasm) === 5 ? 'border-l-4 border-l-yellow-400' : 'hover:border-blue-400'}`}>
-                                      {Number(job.enthusiasm) === 5 && (<div className="absolute top-0 right-0 w-full h-1 bg-gradient-to-r from-transparent via-yellow-200 to-transparent opacity-50 rounded-t-lg"></div>)}
-                                      
-                                      <h3 className="font-bold text-slate-800 mb-0.5 leading-snug text-xs md:text-sm line-clamp-2">{job.title}</h3>
-                                      <p className="text-blue-600 text-[10px] md:text-xs font-bold flex items-center gap-1 mb-2 md:mb-3 truncate"><Building2 size={10}/> {job.company}</p>
-                                      
-                                      <div className="space-y-1.5 md:space-y-2">
-                                          <div className="flex items-center justify-between text-[9px] md:text-[10px] text-slate-500 font-medium"><div className="flex items-center gap-1.5 md:gap-2"><div className="flex items-center gap-1 bg-slate-50 px-1 md:px-1.5 py-0.5 rounded border border-slate-100"><MapPin size={10}/> {job.location_type || 'Híbrido'}</div>{getContactCount(job) === 0 && (<div className="text-orange-500 bg-orange-50 px-1 md:px-1.5 py-0.5 rounded border border-orange-100 flex items-center gap-1"><UserX size={10}/> <span>0</span></div>)}</div>{job.salary && (<div className="flex items-center gap-1 text-emerald-700 bg-emerald-50 px-1 md:px-1.5 py-0.5 rounded border border-emerald-100"><Euro size={10}/> {formatSalary(job.salary)}</div>)}</div>
-                                          
-                                          {/* SECCIÓN INFERIOR DE LA TARJETA CON XP */}
-                                          <div className="flex flex-col gap-1 md:gap-1.5 pt-1.5 md:pt-2 border-t border-slate-50">
-                                              <div className="flex justify-between items-center">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="flex gap-0.5">{[...Array(5)].map((_, i) => (<Heart key={i} size={8} className={`md:w-2.5 md:h-2.5 ${i < (Number(job.enthusiasm) || 0) ? "text-yellow-400 fill-yellow-400" : "text-slate-200 fill-slate-200"}`}/>))}</div>
-                                                    
-                                                    {/* INSIGNIA XP INDIVIDUAL (Oculta en móviles md:flex) */}
-                                                    {jobXpMap[job.id] > 0 && (
-                                                      <span className="hidden md:flex items-center gap-0.5 text-[9px] font-bold text-yellow-600 bg-yellow-50 px-1 py-0.5 rounded border border-yellow-200" title={`Puntos generados por esta oferta`}>
-                                                         ⭐ {jobXpMap[job.id]} XP
-                                                      </span>
-                                                    )}
-                                                </div>
-                                                <div className="text-[9px] md:text-[10px] text-slate-400 flex items-center gap-1"><Clock size={10}/> {formatDateShort(job.last_updated)}</div>
-                                              </div>
-                                              
-                                              {job.date_applied && (<div className="bg-green-50 text-green-700 px-1.5 py-1 rounded border border-green-100 text-[9px] md:text-[10px] font-bold flex items-center justify-center gap-1 md:gap-1.5 mt-0.5"><CalendarCheck size={10}/> Postulado: {formatDateShort(job.date_applied)}</div>)}
-                                          </div>
+                      {Object.keys(columns).map((colId) => {
+                        const isDescartado = colId === 'Descartado';
+                        const isCollapsed = isDescartado && !showDiscarded;
 
-                                          {jobTasks.length > 0 && (
-                                            <div className="mt-1 md:mt-2 bg-red-50 border border-red-100 text-red-600 text-[10px] font-bold px-2 py-1.5 rounded flex items-center gap-1.5">
-                                               <Zap size={12} className="fill-red-600"/> Seguimiento: {jobTasks[0].taskLabel}
-                                            </div>
-                                          )}
-                                      </div>
-                                      </div>
-                                  )}
-                                  </Draggable>
-                                  );
-                              })}
-                              {provided.placeholder}
+                        return (
+                          <Droppable key={colId} droppableId={colId}>
+                              {(provided) => (
+                              <div 
+                                ref={provided.innerRef} 
+                                {...provided.droppableProps} 
+                                onClick={isCollapsed ? () => setShowDiscarded(true) : undefined}
+                                className={`bg-slate-200/80 rounded-xl flex flex-col h-full border border-slate-300/50 backdrop-blur-sm shadow-sm transition-all duration-300 ${isCollapsed ? 'w-12 md:w-16 p-2 items-center cursor-pointer hover:bg-slate-300/80 justify-start' : 'w-72 md:w-80 p-2 md:p-3'}`}
+                              >
+                                  <div className={`flex justify-between items-center mb-2 md:mb-3 px-1 shrink-0 ${isCollapsed ? 'flex-col gap-4 mt-2' : 'w-full'}`}>
+                                     <div className={`flex items-center gap-2 ${isCollapsed ? 'flex-col' : ''}`}>
+                                        <h2 className={`font-bold text-slate-700 uppercase tracking-wider ${isCollapsed ? 'text-[10px] [writing-mode:vertical-rl] rotate-180 mt-2' : 'text-[10px] md:text-xs'}`}>
+                                          {isCollapsed ? '🗑️ DESCARTADOS' : colId}
+                                        </h2>
+                                        <span className="bg-white text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm border border-slate-100">{columns[colId].length}</span>
+                                     </div>
+                                     {isDescartado && !isCollapsed && (
+                                        <button onClick={(e) => { e.stopPropagation(); setShowDiscarded(false); }} className="text-slate-400 hover:text-slate-700 text-[10px] font-bold bg-white px-2 py-1 rounded border border-slate-200 shadow-sm transition-colors">
+                                           Ocultar
+                                        </button>
+                                     )}
+                                  </div>
+
+                                  <div className={`flex-1 overflow-y-auto pr-1 custom-scrollbar pb-2 ${isCollapsed ? 'hidden' : 'space-y-2 md:space-y-3'}`}>
+                                  {columns[colId].map((job, index) => {
+                                      const jobTasks = pendingTasks.filter(t => t.jobId === job.id);
+                                      return (
+                                      <Draggable key={job.id} draggableId={String(job.id)} index={index}>
+                                      {(provided, snapshot) => (
+                                          <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} style={{ ...provided.draggableProps.style }} onClick={() => handleOpenJob(job.id)} className={`bg-white p-3 md:p-4 rounded-lg border transition-all cursor-pointer group relative hover:shadow-md ${snapshot.isDragging ? 'shadow-2xl ring-2 ring-blue-500 z-50' : 'shadow-sm border-slate-200'} ${Number(job.enthusiasm) === 5 ? 'border-l-4 border-l-yellow-400' : 'hover:border-blue-400'}`}>
+                                          {Number(job.enthusiasm) === 5 && (<div className="absolute top-0 right-0 w-full h-1 bg-gradient-to-r from-transparent via-yellow-200 to-transparent opacity-50 rounded-t-lg"></div>)}
+                                          
+                                          <h3 className="font-bold text-slate-800 mb-0.5 leading-snug text-xs md:text-sm line-clamp-2">{job.title}</h3>
+                                          <p className="text-blue-600 text-[10px] md:text-xs font-bold flex items-center gap-1 mb-2 md:mb-3 truncate"><Building2 size={10}/> {job.company}</p>
+                                          
+                                          <div className="space-y-1.5 md:space-y-2">
+                                              <div className="flex items-center justify-between text-[9px] md:text-[10px] text-slate-500 font-medium"><div className="flex items-center gap-1.5 md:gap-2"><div className="flex items-center gap-1 bg-slate-50 px-1 md:px-1.5 py-0.5 rounded border border-slate-100"><MapPin size={10}/> {job.location_type || 'Híbrido'}</div>{getContactCount(job) === 0 && (<div className="text-orange-500 bg-orange-50 px-1 md:px-1.5 py-0.5 rounded border border-orange-100 flex items-center gap-1"><UserX size={10}/> <span>0</span></div>)}</div>{job.salary && (<div className="flex items-center gap-1 text-emerald-700 bg-emerald-50 px-1 md:px-1.5 py-0.5 rounded border border-emerald-100"><Euro size={10}/> {formatSalary(job.salary)}</div>)}</div>
+                                              
+                                              <div className="flex flex-col gap-1 md:gap-1.5 pt-1.5 md:pt-2 border-t border-slate-50">
+                                                  <div className="flex justify-between items-center">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="flex gap-0.5">{[...Array(5)].map((_, i) => (<Heart key={i} size={8} className={`md:w-2.5 md:h-2.5 ${i < (Number(job.enthusiasm) || 0) ? "text-yellow-400 fill-yellow-400" : "text-slate-200 fill-slate-200"}`}/>))}</div>
+                                                        {jobXpMap[job.id] > 0 && (<span className="hidden md:flex items-center gap-0.5 text-[9px] font-bold text-yellow-600 bg-yellow-50 px-1 py-0.5 rounded border border-yellow-200" title={`Puntos generados por esta oferta`}>⭐ {jobXpMap[job.id]} XP</span>)}
+                                                    </div>
+                                                    <div className="text-[9px] md:text-[10px] text-slate-400 flex items-center gap-1"><Clock size={10}/> {formatDateShort(job.last_updated)}</div>
+                                                  </div>
+                                                  {job.date_applied && (<div className="bg-green-50 text-green-700 px-1.5 py-1 rounded border border-green-100 text-[9px] md:text-[10px] font-bold flex items-center justify-center gap-1 md:gap-1.5 mt-0.5"><CalendarCheck size={10}/> Postulado: {formatDateShort(job.date_applied)}</div>)}
+                                              </div>
+
+                                              {jobTasks.length > 0 && (
+                                                <div className="mt-1 md:mt-2 bg-red-50 border border-red-100 text-red-600 text-[10px] font-bold px-2 py-1.5 rounded flex items-center gap-1.5">
+                                                   <Zap size={12} className="fill-red-600"/> Seguimiento: {jobTasks[0].taskLabel}
+                                                </div>
+                                              )}
+                                          </div>
+                                          </div>
+                                      )}
+                                      </Draggable>
+                                      );
+                                  })}
+                                  </div>
+                                  {/* El placeholder se queda fuera del div oculto para que puedas seguir arrastrando tarjetas ahí aunque esté minimizado */}
+                                  {provided.placeholder}
                               </div>
-                          </div>
-                          )}
-                      </Droppable>
-                      ))}
+                              )}
+                          </Droppable>
+                        );
+                      })}
                   </div>
                   </DragDropContext>
               )}
