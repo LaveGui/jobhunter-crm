@@ -18,6 +18,7 @@ export const calculatePendingTasks = (jobs, customPlaybook = null) => {
   const activePlaybook = customPlaybook && customPlaybook.length > 0 ? customPlaybook : DEFAULT_PLAYBOOK;
 
   jobs.forEach(job => {
+    // Si no has aplicado o está descartado, no hacemos nada de nada.
     if (!job.date_applied || job.status === 'Descartado') return;
 
     let logs = [];
@@ -61,9 +62,8 @@ export const calculatePendingTasks = (jobs, customPlaybook = null) => {
     }
 
     // 2️⃣ TAREAS DE SECUENCIA (Outbound)
-    // Solo mostramos tareas de secuencia si NO hay entrevistas pendientes de feedback
-    // y si el estado no es "Oferta"
-    if (!hasPendingInterviewFeedback && job.status !== 'Oferta') {
+    // 🛑 AQUI ESTÁ EL CAMBIO: No mostramos tareas de seguimiento si ya estás en Entrevista u Oferta.
+    if (!hasPendingInterviewFeedback && job.status !== 'Oferta' && job.status !== 'Entrevista') {
       let baseDate = new Date(job.date_applied);
       baseDate.setHours(0,0,0,0);
       let pendingTask = null;
