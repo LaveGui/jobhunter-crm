@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from "react-router-dom";
-import { Mail, Phone, MapPin, Linkedin, Trash2, PlusCircle, Printer, ArrowLeft, LayoutTemplate, Globe, Download, ScanEye, Settings, Type, AlignJustify, Bot, Sparkles, Briefcase, CheckCircle, Save, History, FileText } from 'lucide-react'; // <--- Añadí iconos History y FileText
+import { Mail, Phone, MapPin, Linkedin, Trash2, PlusCircle, Printer, ArrowLeft, LayoutTemplate, Globe, Download, ScanEye, Settings, Type, AlignJustify, Bot, Sparkles, Briefcase, CheckCircle, Save, History, FileText } from 'lucide-react'; 
 import useGoogleSheets from './hooks/useGoogleSheets';
 
 // --- COMPONENTE AUXILIAR PARA NEGRITAS Y LISTAS ---
@@ -38,7 +38,6 @@ const cvToString = (cv) => {
   let text = `*** PERFIL ***\n${cv.personal.summary}\n\n`;
   text += `*** EXPERIENCIA ***\n`;
   cv.experience.forEach(exp => {
-    // Usamos un separador especial | y ~ para facilitar el parseo posterior
     text += `• ${exp.company} | ${exp.role} | ${exp.date}\n${exp.description}\n\n`;
   });
   text += `*** SKILLS ***\n${cv.skills.join(', ')}`;
@@ -83,7 +82,7 @@ export default function CVBuilder() {
   const [targetJob, setTargetJob] = useState(null);
   const [activeTab, setActiveTab] = useState('content'); 
   const [debugMode, setDebugMode] = useState(false);
-  const [showHistory, setShowHistory] = useState(false); // Estado para el modal de historial
+  const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
     if (location.state?.jobContext) {
@@ -114,27 +113,40 @@ export default function CVBuilder() {
     document.title = originalTitle;
   };
 
-  // --- GUARDAR Y APLICAR ---
-  const handleSaveAndApply = async () => {
+  // --- GUARDAR INTELIGENTE (CORREGIDO) ---
+  const handleSave = async () => {
     if (!targetJob) return;
-    if (!window.confirm(`¿Quieres marcar "${targetJob.company}" como APLICADO?`)) return;
 
     const cvTextDump = cvToString(cv);
-    const today = new Date().toLocaleDateString();
+    const isAlreadyApplied = ['Aplicado', 'Entrevista', 'Oferta'].includes(targetJob.status);
+    
+    let newStatus = targetJob.status;
+    let newDateApplied = targetJob.date_applied;
+
+    // Si aún no hemos aplicado, preguntamos si queremos matar dos pájaros de un tiro
+    if (!isAlreadyApplied) {
+      if (window.confirm(`¿Quieres marcar la oferta en "${targetJob.company}" como APLICADA además de guardar el CV?`)) {
+        newStatus = 'Aplicado';
+        newDateApplied = new Date().toISOString().split('T')[0]; // Formato estándar
+      }
+    }
 
     try {
-      await updateJob({
-        id: targetJob.id,
-        status: 'Aplicado', 
-        cv_text: cvTextDump, 
-        date_applied: today, 
-        last_updated: new Date().toISOString() 
-      });
-      setTargetJob(prev => ({ ...prev, status: 'Aplicado', date_applied: today }));
-      alert("✅ ¡Oferta actualizada!");
+      // ⚠️ AQUÍ ESTABA EL FALLO: Ahora enviamos TODA la tarjeta usando ...targetJob
+      const payload = {
+        ...targetJob,
+        status: newStatus,
+        cv_text: cvTextDump,
+        date_applied: newDateApplied,
+        last_updated: new Date().toISOString()
+      };
+      
+      await updateJob(payload);
+      setTargetJob(payload);
+      alert("✅ ¡CV guardado correctamente en tu base de datos!");
     } catch (error) {
       console.error("Error:", error);
-      alert("❌ Error al guardar.");
+      alert("❌ Hubo un error al guardar. Revisa tu conexión a Sheets.");
     }
   };
 
@@ -144,43 +156,33 @@ export default function CVBuilder() {
     if (!window.confirm("⚠️ Esto sobrescribirá el Perfil, Experiencia y Skills actuales con los datos seleccionados. ¿Continuar?")) return;
 
     try {
-      // 1. Extraer Perfil
       const summaryMatch = historyText.match(/\*\*\* PERFIL \*\*\*\n([\s\S]*?)\n\n\*\*\*/);
       const newSummary = summaryMatch ? summaryMatch[1].trim() : cv.personal.summary;
 
-      // 2. Extraer Skills
       const skillsMatch = historyText.match(/\*\*\* SKILLS \*\*\*\n([\s\S]*)/);
       const newSkills = skillsMatch ? skillsMatch[1].split(',').map(s => s.trim()) : cv.skills;
 
-      // 3. Extraer Experiencia (La parte difícil)
-      // Buscamos el bloque entre EXPERIENCIA y SKILLS
       const expBlockMatch = historyText.match(/\*\*\* EXPERIENCIA \*\*\*\n([\s\S]*?)\n\*\*\* SKILLS/);
       let newExperience = [];
       
       if (expBlockMatch) {
         const expRaw = expBlockMatch[1];
-        // Dividimos por el bullet point '•'
         const expParts = expRaw.split('•').filter(p => p.trim().length > 0);
         
         newExperience = expParts.map((part, index) => {
-          // Formato esperado: "Company | Role | Date \n Description"
-          // O el formato antiguo: "Company | Role (Date) \n Description"
           const firstLineEnd = part.indexOf('\n');
-          const header = part.substring(0, firstLineEnd).trim(); // "Jeff App | PM | 2023"
+          const header = part.substring(0, firstLineEnd).trim(); 
           const description = part.substring(firstLineEnd).trim();
 
-          // Intentamos parsear el header
           let company = "Empresa", role = "Rol", date = "Fecha";
           
           if (header.includes('|')) {
             const headerParts = header.split('|').map(s => s.trim());
             company = headerParts[0] || company;
             role = headerParts[1] || role;
-            // Si hay 3 partes, la 3ra es la fecha. Si hay 2, intentamos sacar fecha del parentesis
             if (headerParts[2]) {
               date = headerParts[2];
             } else if (role.includes('(')) {
-              // Fallback formato antiguo "Role (Date)"
               const dateMatch = role.match(/\((.*?)\)/);
               if (dateMatch) {
                 date = dateMatch[1];
@@ -199,7 +201,6 @@ export default function CVBuilder() {
         });
       }
 
-      // Si no pudimos parsear experiencia (formato antiguo roto), mantenemos la actual
       const finalExperience = newExperience.length > 0 ? newExperience : cv.experience;
 
       setCv(prev => ({
@@ -219,7 +220,7 @@ export default function CVBuilder() {
   };
 
   const pendingJobs = jobs.filter(j => j.status === 'Prospecto');
-  const historyJobs = jobs.filter(j => j.cv_text && j.cv_text.length > 10); // Solo ofertas con CV guardado
+  const historyJobs = jobs.filter(j => j.cv_text && j.cv_text.length > 10); 
 
   const debugClass = debugMode ? "debug-box" : "";
 
@@ -284,11 +285,10 @@ export default function CVBuilder() {
                     <button onClick={handlePrint} className="flex-1 bg-white text-slate-900 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1 hover:bg-slate-100">
                       <Download size={14}/> PDF
                     </button>
-                    {targetJob.status !== 'Aplicado' && (
-                      <button onClick={handleSaveAndApply} className="flex-1 bg-green-600 text-white py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1 hover:bg-green-700 animate-pulse hover:animate-none">
-                        <CheckCircle size={14}/> Guardar
-                      </button>
-                    )}
+                    {/* El botón Guardar ahora SIEMPRE aparece para que puedas actualizar el borrador */}
+                    <button onClick={handleSave} className="flex-1 bg-green-600 text-white py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1 hover:bg-green-700 transition-colors">
+                      <Save size={14}/> Guardar CV
+                    </button>
                   </div>
                 </div>
               ) : (
@@ -304,7 +304,7 @@ export default function CVBuilder() {
         </div>
 
         {/* TABS */}
-        <div className="flex border-b sticky top-[180px] bg-white z-20"> {/* Ajustado top para el nuevo boton */}
+        <div className="flex border-b sticky top-[180px] bg-white z-20"> 
           <button onClick={() => setActiveTab('content')} className={`flex-1 py-3 text-xs font-bold uppercase flex items-center justify-center gap-2 ${activeTab === 'content' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400'}`}><LayoutTemplate size={14}/> Contenido</button>
           <button onClick={() => setActiveTab('design')} className={`flex-1 py-3 text-xs font-bold uppercase flex items-center justify-center gap-2 ${activeTab === 'design' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400'}`}><Settings size={14}/> Diseño</button>
         </div>
