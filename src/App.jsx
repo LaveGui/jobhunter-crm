@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Routes, Route, useNavigate, Link } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import confetti from 'canvas-confetti'; // <--- NUEVO: Animaciones
+import confetti from 'canvas-confetti'; 
 import { 
   Plus, Search, Building2, MapPin, Euro, Heart, 
   CalendarCheck, Clock, UserX, Activity, ArrowDownWideNarrow, 
-  Zap, Settings, BarChart3, Flame, Trophy // <--- NUEVO: Iconos Gamificación
+  Zap, Settings, BarChart3, Flame, Trophy, Snowflake, Thermometer // <--- Añadidos Snowflake y Thermometer
 } from 'lucide-react'; 
 import useGoogleSheets from './hooks/useGoogleSheets';
 import QuickAddModal from './components/QuickAddModal';
@@ -26,6 +26,20 @@ const parseEsDate = (dateString) => {
   } catch(e) { return new Date(); }
 };
 
+// HELPER NUEVO: Calcular días hábiles entre dos fechas
+const getBusinessDays = (startDate, endDate) => {
+  let count = 0;
+  let curDate = new Date(startDate.getTime());
+  while (curDate < endDate) {
+    curDate.setDate(curDate.getDate() + 1);
+    // 0 es Domingo, 6 es Sábado
+    if (curDate.getDay() !== 0 && curDate.getDay() !== 6) {
+      count++;
+    }
+  }
+  return count;
+};
+
 export default function App() {
   const { jobs, loading, error, addJob, updateJob } = useGoogleSheets();
   const navigate = useNavigate();
@@ -37,82 +51,92 @@ export default function App() {
   const [showStrategyModal, setShowStrategyModal] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [showTaskPanel, setShowTaskPanel] = useState(false);
-  const [showDiscarded, setShowDiscarded] = useState(false); // <--- NUEVO ESTADO
+  const [showDiscarded, setShowDiscarded] = useState(false); 
   
   const [activePlaybook, setActivePlaybook] = useState(DEFAULT_PLAYBOOK);
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortBy, setSortBy] = useState('last_updated'); 
+  const [sortBy, setSortBy] = useState('temperature'); // Por defecto ahora ordena por temperatura
 
   useEffect(() => { const saved = localStorage.getItem('jobhunter_playbook'); if (saved) setActivePlaybook(JSON.parse(saved)); }, []);
   
-useEffect(() => { 
-    if (jobs.length > 0) {
-      const tasks = calculatePendingTasks(jobs, activePlaybook);
-      setPendingTasks(tasks);
-      
-      const newCols = { 'Prospecto': [], 'Aplicado': [], 'Entrevista': [], 'Oferta': [], 'Descartado': [] };
-      
-      // BUSCADOR MEJORADO: Ahora busca por Empresa, Puesto y también CONTACTOS
-      const filteredJobs = jobs.filter(job => {
-        const term = searchTerm.toLowerCase();
-        const matchCompany = (job.company || '').toLowerCase().includes(term);
-        const matchTitle = (job.title || '').toLowerCase().includes(term);
-        
-        let matchContact = false;
-        try {
-          const contactsArray = typeof job.contacts === 'string' ? JSON.parse(job.contacts) : (job.contacts || []);
-          matchContact = contactsArray.some(c => (c.name || '').toLowerCase().includes(term));
-        } catch(e) {}
-
-        return matchCompany || matchTitle || matchContact;
-      });
-
-      filteredJobs.forEach(job => { if (newCols[job.status]) newCols[job.status].push(job); else newCols['Prospecto'].push(job); });
-      Object.keys(newCols).forEach(col => { newCols[col] = sortJobs(newCols[col]); });
-      setColumns(newCols);
-    }
-  }, [jobs, activePlaybook, searchTerm, sortBy]);
-
-
-// --- MOTOR DE GAMIFICACIÓN ---
-  const { xp, levelInfo, streak, jobXpMap } = useMemo(() => {
+  // --- MOTOR DE GAMIFICACIÓN Y TERMODINÁMICA ---
+  const { xp, levelInfo, streak, jobXpMap, jobTemperatureMap } = useMemo(() => {
     let totalXP = 0;
     const activeDates = new Set();
-    const xpMap = {}; // NUEVO: Mapa para guardar los puntos por cada tarjeta
+    const xpMap = {}; 
+    const tempMap = {}; // NUEVO: Mapa de Temperaturas
+
+    const today = new Date();
+    today.setHours(0,0,0,0);
 
     jobs.forEach(job => {
       let jobXP = 0;
+      let actionScore = 0; // Puntos térmicos sumados
+      let hasInterview = false;
       
-      // XP por Status
-      if (job.status === 'Entrevista') jobXP += 100;
-      if (job.status === 'Oferta') jobXP += 300;
+      let lastActionDate = job.date_applied ? new Date(job.date_applied) : new Date(job.last_updated || Date.now());
+      lastActionDate.setHours(0,0,0,0);
+
+      // Status Básico
+      if (job.status === 'Entrevista') { jobXP += 100; hasInterview = true; }
+      if (job.status === 'Oferta') { jobXP += 300; hasInterview = true; }
+      
+      if (job.date_applied) actionScore += 15; // +15° por aplicar
 
       let logs = [];
       try { logs = typeof job.activity_log === 'string' ? JSON.parse(job.activity_log) : job.activity_log; } catch(e){}
       
       if (logs && logs.length > 0) {
         logs.forEach(log => {
-          // XP por Esfuerzo Proactivo
+          // XP (Gamificación)
           if (log.type === 'note') jobXP += 5;
           if (log.type === 'apply') jobXP += 10;
           if (log.type === 'visit') jobXP += 15;
           if (log.type === 'connect' || log.type === 'called_me') jobXP += 20;
           if (log.type === 'message' || log.type === 'email' || log.type === 'call') jobXP += 30;
-          if (log.type === 'interview') jobXP += 100; // Agendarla suma!
+          if (log.type === 'interview') { jobXP += 100; hasInterview = true; }
 
-          // Recopilamos fechas para calcular la racha
+          // TEMPERATURA (Calentamiento)
+          if (log.type === 'note') actionScore += 5;
+          if (log.type === 'apply') actionScore += 15;
+          if (log.type === 'visit') actionScore += 10;
+          if (log.type === 'connect') actionScore += 15;
+          if (log.type === 'message' || log.type === 'email' || log.type === 'call') actionScore += 20;
+          if (log.type === 'viewed_me') actionScore += 25;
+          if (log.type === 'called_me') actionScore += 40;
+
+          // Recopilar fechas para calcular racha y última acción
           if (log.date) {
             const d = parseEsDate(log.date);
-            activeDates.add(d.setHours(0,0,0,0));
+            activeDates.add(new Date(d).setHours(0,0,0,0));
+            
+            if (d > lastActionDate) {
+              lastActionDate = new Date(d);
+              lastActionDate.setHours(0,0,0,0);
+            }
           }
         });
       }
       
-      xpMap[job.id] = jobXP; // Guardamos los puntos de esta oferta
-      totalXP += jobXP; // Sumamos al global
+      xpMap[job.id] = jobXP; 
+      totalXP += jobXP; 
+
+      // --- CÁLCULO FINAL DE TEMPERATURA ---
+      let jobTemp = 0;
+      if (hasInterview || job.status === 'Oferta') {
+        jobTemp = 100; // Al máximo
+      } else if (job.status === 'Descartado') {
+        jobTemp = 0; // Muerta
+      } else {
+        // ¿Cuántos días hábiles han pasado desde que hiciste la última acción?
+        const daysSinceLastAction = getBusinessDays(lastActionDate, today);
+        const coldPenalty = daysSinceLastAction * 10; // -10° por día hábil
+        
+        jobTemp = Math.max(0, Math.min(100, actionScore - coldPenalty));
+      }
+      tempMap[job.id] = jobTemp;
     });
 
-    // Niveles
     const getLevel = (puntos) => {
       if (puntos < 150) return { level: 1, name: 'Novato B2B' };
       if (puntos < 400) return { level: 2, name: 'Buscador Activo' };
@@ -121,7 +145,6 @@ useEffect(() => {
       return { level: 5, name: 'Maestro Jedi' };
     };
 
-    // Calculadora de Racha (Días Hábiles)
     const calculateStreak = () => {
       const dates = Array.from(activeDates).sort((a,b) => b - a);
       if (dates.length === 0) return 0;
@@ -144,21 +167,48 @@ useEffect(() => {
       return currentStreak;
     };
 
-    return { xp: totalXP, levelInfo: getLevel(totalXP), streak: calculateStreak(), jobXpMap: xpMap };
+    return { xp: totalXP, levelInfo: getLevel(totalXP), streak: calculateStreak(), jobXpMap: xpMap, jobTemperatureMap: tempMap };
   }, [jobs]);
+
+  // --- APLICAR EFECTO DE BÚSQUEDA Y ORDEN ---
+  useEffect(() => { 
+    if (jobs.length > 0) {
+      const tasks = calculatePendingTasks(jobs, activePlaybook);
+      setPendingTasks(tasks);
+      
+      const newCols = { 'Prospecto': [], 'Aplicado': [], 'Entrevista': [], 'Oferta': [], 'Descartado': [] };
+      
+      const filteredJobs = jobs.filter(job => {
+        const term = searchTerm.toLowerCase();
+        const matchCompany = (job.company || '').toLowerCase().includes(term);
+        const matchTitle = (job.title || '').toLowerCase().includes(term);
+        let matchContact = false;
+        try {
+          const contactsArray = typeof job.contacts === 'string' ? JSON.parse(job.contacts) : (job.contacts || []);
+          matchContact = contactsArray.some(c => (c.name || '').toLowerCase().includes(term));
+        } catch(e) {}
+        return matchCompany || matchTitle || matchContact;
+      });
+
+      // ORDENAMIENTO (Ahora usa la Temperatura)
+      const sortJobs = (list) => {
+        return [...list].sort((a, b) => {
+          if (sortBy === 'alpha') return (a.company || '').localeCompare(b.company || '');
+          if (sortBy === 'temperature') return (jobTemperatureMap[b.id] || 0) - (jobTemperatureMap[a.id] || 0); // 🔥 HOTTEST FIRST
+          if (sortBy === 'last_updated') { return new Date(b.last_updated || 0) - new Date(a.last_updated || 0); }
+          return 0;
+        });
+      };
+
+      filteredJobs.forEach(job => { if (newCols[job.status]) newCols[job.status].push(job); else newCols['Prospecto'].push(job); });
+      Object.keys(newCols).forEach(col => { newCols[col] = sortJobs(newCols[col]); });
+      setColumns(newCols);
+    }
+  }, [jobs, activePlaybook, searchTerm, sortBy, jobTemperatureMap]); // <-- Dependencia de tempMap añadida
 
   const formatDateShort = (d) => { if (!d) return null; try { return new Date(d).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }); } catch { return d; } };
   const formatSalary = (s) => { if (!s) return ''; return String(s).replace(/[^\d-]/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, "."); };
   const getContactCount = (job) => { if (!job.contacts) return 0; try { const p = typeof job.contacts === 'string' ? JSON.parse(job.contacts) : job.contacts; return p.length; } catch { return 0; } };
-  
-  const sortJobs = (list) => {
-    return [...list].sort((a, b) => {
-      if (sortBy === 'alpha') return (a.company || '').localeCompare(b.company || '');
-      if (sortBy === 'enthusiasm') return (Number(b.enthusiasm) || 0) - (Number(a.enthusiasm) || 0);
-      if (sortBy === 'last_updated') { return new Date(b.last_updated || 0) - new Date(a.last_updated || 0); }
-      return 0;
-    });
-  };
 
   const handleOpenJob = (jobId) => navigate(`/job/${jobId}`);
   const handleOpenJobFromTask = (task) => navigate(`/job/${task.jobId}`);
@@ -187,12 +237,8 @@ useEffect(() => {
          destCol.splice(destination.index, 0, { ...movedJob, status: newStatus });
          setColumns({ ...columns, [source.droppableId]: sourceCol, [destination.droppableId]: destCol });
          
-         // 🎉 CONFETI GAMIFICACIÓN
-         if (newStatus === 'Entrevista' && source.droppableId !== 'Entrevista') {
-            confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
-         } else if (newStatus === 'Oferta' && source.droppableId !== 'Oferta') {
-            confetti({ particleCount: 300, spread: 100, origin: { y: 0.5 }, colors: ['#FFD700', '#FFA500', '#FF8C00'] });
-         }
+         if (newStatus === 'Entrevista' && source.droppableId !== 'Entrevista') confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+         else if (newStatus === 'Oferta' && source.droppableId !== 'Oferta') confetti({ particleCount: 300, spread: 100, origin: { y: 0.5 }, colors: ['#FFD700', '#FFA500', '#FF8C00'] });
      }
      let extraUpdates = {};
      if (newStatus === 'Aplicado' && !movedJob.date_applied) { extraUpdates.date_applied = new Date().toISOString().split('T')[0]; }
@@ -200,7 +246,7 @@ useEffect(() => {
   };
 
   return (
-<div className="min-h-screen bg-slate-100 font-sans text-slate-900 flex flex-col">
+    <div className="min-h-screen bg-slate-100 font-sans text-slate-900 flex flex-col">
       <Routes>
         <Route path="/" element={
           <div className="flex flex-col h-screen overflow-hidden">
@@ -221,13 +267,11 @@ useEffect(() => {
                       </div>
                       <div className="w-px h-4 bg-slate-600"></div>
                       
-                      {/* TOOLTIP DE XP: Al pasar el ratón se despliega la guía */}
+                      {/* TOOLTIP DE XP */}
                       <div className="relative group flex items-center gap-1.5 text-blue-300 font-bold text-xs md:text-sm cursor-help">
                           <Trophy size={14} className="text-yellow-400" />
                           <span>{xp} XP</span>
                           <span className="hidden md:inline text-slate-400 font-normal ml-1">- {levelInfo.name}</span>
-                          
-                          {/* Menú Flotante de XP */}
                           <div className="absolute top-full right-0 md:left-0 mt-3 w-48 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl p-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
                              <div className="absolute -top-2 left-4 md:left-10 w-4 h-4 bg-slate-800 border-t border-l border-slate-600 transform rotate-45"></div>
                              <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-wider border-b border-slate-700 pb-1 mb-2">Puntos de Esfuerzo</h4>
@@ -236,9 +280,8 @@ useEffect(() => {
                                <li className="flex justify-between"><span>🚀 Postular</span><span className="text-yellow-400 font-bold">+10</span></li>
                                <li className="flex justify-between"><span>👁️ Visitar RRHH</span><span className="text-yellow-400 font-bold">+15</span></li>
                                <li className="flex justify-between"><span>🤝 Conectar</span><span className="text-yellow-400 font-bold">+20</span></li>
-                               <li className="flex justify-between"><span>👔 Enviar Mensaje</span><span className="text-yellow-400 font-bold">+30</span></li>
+                               <li className="flex justify-between"><span>👔 Mensaje</span><span className="text-yellow-400 font-bold">+30</span></li>
                                <li className="flex justify-between"><span>📅 Entrevista</span><span className="text-emerald-400 font-bold">+100</span></li>
-                               <li className="flex justify-between"><span>🎉 Oferta</span><span className="text-orange-400 font-bold">+300</span></li>
                              </ul>
                           </div>
                       </div>
@@ -274,11 +317,21 @@ useEffect(() => {
               </div>
             )}
 
-            {/* FILTROS RESPONSIVOS */}
+            {/* FILTROS RESPONSIVOS Y SORTING TÉRMICO */}
             <div className="bg-white border-b border-slate-200 p-3 shadow-sm shrink-0 z-10">
                <div className="max-w-7xl mx-auto flex flex-col md:flex-row gap-3 items-center justify-between">
                   <div className="relative w-full md:w-96"><Search className="absolute left-3 top-2.5 text-slate-400" size={16} /><input type="text" placeholder="Buscar empresa o contacto..." className="w-full pl-9 pr-4 py-1.5 md:py-2 bg-slate-100 rounded-lg border-transparent focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none text-xs md:text-sm transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}/></div>
-                  <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0 hide-scrollbar"><span className="text-[10px] md:text-xs font-bold text-slate-400 uppercase whitespace-nowrap">Ordenar por:</span><button onClick={() => setSortBy('last_updated')} className={`px-2 md:px-3 py-1.5 rounded-full text-[10px] md:text-xs font-bold flex items-center gap-1 whitespace-nowrap ${sortBy === 'last_updated' ? 'bg-blue-100 text-blue-700' : 'text-slate-500 hover:bg-slate-100'}`}><Activity size={12}/> Actividad</button><button onClick={() => setSortBy('enthusiasm')} className={`px-2 md:px-3 py-1.5 rounded-full text-[10px] md:text-xs font-bold flex items-center gap-1 whitespace-nowrap ${sortBy === 'enthusiasm' ? 'bg-yellow-100 text-yellow-700' : 'text-slate-500 hover:bg-slate-100'}`}><Heart size={12}/> Interés</button><button onClick={() => setSortBy('alpha')} className={`px-2 md:px-3 py-1.5 rounded-full text-[10px] md:text-xs font-bold flex items-center gap-1 whitespace-nowrap ${sortBy === 'alpha' ? 'bg-purple-100 text-purple-700' : 'text-slate-500 hover:bg-slate-100'}`}><ArrowDownWideNarrow size={12}/> A-Z</button></div>
+                  <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0 hide-scrollbar">
+                     <span className="text-[10px] md:text-xs font-bold text-slate-400 uppercase whitespace-nowrap">Ordenar:</span>
+                     
+                     {/* BOTÓN TERMODINÁMICO */}
+                     <button onClick={() => setSortBy('temperature')} className={`px-2 md:px-3 py-1.5 rounded-full text-[10px] md:text-xs font-bold flex items-center gap-1 whitespace-nowrap transition-colors ${sortBy === 'temperature' ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'text-slate-500 hover:bg-slate-100 border border-transparent'}`}>
+                        <Thermometer size={14} className={sortBy === 'temperature' ? 'text-orange-500' : 'text-slate-400'}/> Temperatura
+                     </button>
+                     
+                     <button onClick={() => setSortBy('last_updated')} className={`px-2 md:px-3 py-1.5 rounded-full text-[10px] md:text-xs font-bold flex items-center gap-1 whitespace-nowrap ${sortBy === 'last_updated' ? 'bg-blue-100 text-blue-700' : 'text-slate-500 hover:bg-slate-100'}`}><Activity size={12}/> Actividad</button>
+                     <button onClick={() => setSortBy('alpha')} className={`px-2 md:px-3 py-1.5 rounded-full text-[10px] md:text-xs font-bold flex items-center gap-1 whitespace-nowrap ${sortBy === 'alpha' ? 'bg-purple-100 text-purple-700' : 'text-slate-500 hover:bg-slate-100'}`}><ArrowDownWideNarrow size={12}/> A-Z</button>
+                  </div>
               </div>
             </div>
 
@@ -296,12 +349,7 @@ useEffect(() => {
                         return (
                           <Droppable key={colId} droppableId={colId}>
                               {(provided) => (
-                              <div 
-                                ref={provided.innerRef} 
-                                {...provided.droppableProps} 
-                                onClick={isCollapsed ? () => setShowDiscarded(true) : undefined}
-                                className={`bg-slate-200/80 rounded-xl flex flex-col h-full border border-slate-300/50 backdrop-blur-sm shadow-sm transition-all duration-300 ${isCollapsed ? 'w-12 md:w-16 p-2 items-center cursor-pointer hover:bg-slate-300/80 justify-start' : 'w-72 md:w-80 p-2 md:p-3'}`}
-                              >
+                              <div ref={provided.innerRef} {...provided.droppableProps} onClick={isCollapsed ? () => setShowDiscarded(true) : undefined} className={`bg-slate-200/80 rounded-xl flex flex-col h-full border border-slate-300/50 backdrop-blur-sm shadow-sm transition-all duration-300 ${isCollapsed ? 'w-12 md:w-16 p-2 items-center cursor-pointer hover:bg-slate-300/80 justify-start' : 'w-72 md:w-80 p-2 md:p-3'}`}>
                                   <div className={`flex justify-between items-center mb-2 md:mb-3 px-1 shrink-0 ${isCollapsed ? 'flex-col gap-4 mt-2' : 'w-full'}`}>
                                      <div className={`flex items-center gap-2 ${isCollapsed ? 'flex-col' : ''}`}>
                                         <h2 className={`font-bold text-slate-700 uppercase tracking-wider ${isCollapsed ? 'text-[10px] [writing-mode:vertical-rl] rotate-180 mt-2' : 'text-[10px] md:text-xs'}`}>
@@ -309,34 +357,68 @@ useEffect(() => {
                                         </h2>
                                         <span className="bg-white text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm border border-slate-100">{columns[colId].length}</span>
                                      </div>
-                                     {isDescartado && !isCollapsed && (
-                                        <button onClick={(e) => { e.stopPropagation(); setShowDiscarded(false); }} className="text-slate-400 hover:text-slate-700 text-[10px] font-bold bg-white px-2 py-1 rounded border border-slate-200 shadow-sm transition-colors">
-                                           Ocultar
-                                        </button>
-                                     )}
+                                     {isDescartado && !isCollapsed && (<button onClick={(e) => { e.stopPropagation(); setShowDiscarded(false); }} className="text-slate-400 hover:text-slate-700 text-[10px] font-bold bg-white px-2 py-1 rounded border border-slate-200 shadow-sm transition-colors">Ocultar</button>)}
                                   </div>
 
                                   <div className={`flex-1 overflow-y-auto pr-1 custom-scrollbar pb-2 ${isCollapsed ? 'hidden' : 'space-y-2 md:space-y-3'}`}>
                                   {columns[colId].map((job, index) => {
                                       const jobTasks = pendingTasks.filter(t => t.jobId === job.id);
+                                      
+                                      // === LÓGICA VISUAL DEL TERMÓMETRO ===
+                                      const temp = jobTemperatureMap[job.id] || 0;
+                                      let TempIcon = Thermometer;
+                                      let tempClass = "text-slate-500 bg-slate-50 border-slate-200";
+                                      let tempGlow = ""; // Para el borde superior de la tarjeta
+
+                                      if (temp <= 20) { 
+                                          TempIcon = Snowflake; 
+                                          tempClass = "text-blue-500 bg-blue-50 border-blue-200"; 
+                                          tempGlow = "via-blue-200";
+                                      } else if (temp <= 50) { 
+                                          TempIcon = Thermometer; 
+                                          tempClass = "text-slate-500 bg-slate-50 border-slate-200"; 
+                                          tempGlow = "via-slate-200";
+                                      } else if (temp < 80) { 
+                                          TempIcon = Flame; 
+                                          tempClass = "text-orange-500 bg-orange-50 border-orange-200"; 
+                                          tempGlow = "via-orange-300";
+                                      } else { 
+                                          TempIcon = Flame; 
+                                          tempClass = "text-red-600 bg-red-50 border-red-200"; 
+                                          tempGlow = "via-red-400";
+                                      }
+
                                       return (
                                       <Draggable key={job.id} draggableId={String(job.id)} index={index}>
                                       {(provided, snapshot) => (
-                                          <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} style={{ ...provided.draggableProps.style }} onClick={() => handleOpenJob(job.id)} className={`bg-white p-3 md:p-4 rounded-lg border transition-all cursor-pointer group relative hover:shadow-md ${snapshot.isDragging ? 'shadow-2xl ring-2 ring-blue-500 z-50' : 'shadow-sm border-slate-200'} ${Number(job.enthusiasm) === 5 ? 'border-l-4 border-l-yellow-400' : 'hover:border-blue-400'}`}>
-                                          {Number(job.enthusiasm) === 5 && (<div className="absolute top-0 right-0 w-full h-1 bg-gradient-to-r from-transparent via-yellow-200 to-transparent opacity-50 rounded-t-lg"></div>)}
+                                          <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} style={{ ...provided.draggableProps.style }} onClick={() => handleOpenJob(job.id)} className={`bg-white p-3 md:p-4 rounded-lg border transition-all cursor-pointer group relative hover:shadow-md ${snapshot.isDragging ? 'shadow-2xl ring-2 ring-blue-500 z-50' : 'shadow-sm border-slate-200'} ${temp >= 80 ? 'border-t-4 border-t-red-500' : temp > 50 ? 'border-t-2 border-t-orange-400' : 'hover:border-blue-400'}`}>
+                                          {/* HALO TÉRMICO SUPERIOR */}
+                                          {temp > 20 && (<div className={`absolute top-0 right-0 w-full h-1 bg-gradient-to-r from-transparent ${tempGlow} to-transparent opacity-50 rounded-t-lg`}></div>)}
                                           
                                           <h3 className="font-bold text-slate-800 mb-0.5 leading-snug text-xs md:text-sm line-clamp-2">{job.title}</h3>
                                           <p className="text-blue-600 text-[10px] md:text-xs font-bold flex items-center gap-1 mb-2 md:mb-3 truncate"><Building2 size={10}/> {job.company}</p>
                                           
                                           <div className="space-y-1.5 md:space-y-2">
-                                              <div className="flex items-center justify-between text-[9px] md:text-[10px] text-slate-500 font-medium"><div className="flex items-center gap-1.5 md:gap-2"><div className="flex items-center gap-1 bg-slate-50 px-1 md:px-1.5 py-0.5 rounded border border-slate-100"><MapPin size={10}/> {job.location_type || 'Híbrido'}</div>{getContactCount(job) === 0 && (<div className="text-orange-500 bg-orange-50 px-1 md:px-1.5 py-0.5 rounded border border-orange-100 flex items-center gap-1"><UserX size={10}/> <span>0</span></div>)}</div>{job.salary && (<div className="flex items-center gap-1 text-emerald-700 bg-emerald-50 px-1 md:px-1.5 py-0.5 rounded border border-emerald-100"><Euro size={10}/> {formatSalary(job.salary)}</div>)}</div>
+                                              <div className="flex items-center justify-between text-[9px] md:text-[10px] text-slate-500 font-medium">
+                                                  <div className="flex items-center gap-1.5 md:gap-2">
+                                                      <div className="flex items-center gap-1 bg-slate-50 px-1 md:px-1.5 py-0.5 rounded border border-slate-100"><MapPin size={10}/> {job.location_type || 'Híbrido'}</div>
+                                                      {getContactCount(job) === 0 && (<div className="text-orange-500 bg-orange-50 px-1 md:px-1.5 py-0.5 rounded border border-orange-100 flex items-center gap-1"><UserX size={10}/> <span>0</span></div>)}
+                                                  </div>
+                                                  {job.salary && (<div className="flex items-center gap-1 text-emerald-700 bg-emerald-50 px-1 md:px-1.5 py-0.5 rounded border border-emerald-100"><Euro size={10}/> {formatSalary(job.salary)}</div>)}
+                                              </div>
                                               
                                               <div className="flex flex-col gap-1 md:gap-1.5 pt-1.5 md:pt-2 border-t border-slate-50">
                                                   <div className="flex justify-between items-center">
+                                                    
+                                                    {/* NUEVO INDICADOR TÉRMICO EN LA TARJETA */}
                                                     <div className="flex items-center gap-2">
-                                                        <div className="flex gap-0.5">{[...Array(5)].map((_, i) => (<Heart key={i} size={8} className={`md:w-2.5 md:h-2.5 ${i < (Number(job.enthusiasm) || 0) ? "text-yellow-400 fill-yellow-400" : "text-slate-200 fill-slate-200"}`}/>))}</div>
-                                                        {jobXpMap[job.id] > 0 && (<span className="hidden md:flex items-center gap-0.5 text-[9px] font-bold text-yellow-600 bg-yellow-50 px-1 py-0.5 rounded border border-yellow-200" title={`Puntos generados por esta oferta`}>⭐ {jobXpMap[job.id]} XP</span>)}
+                                                        <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-bold ${tempClass}`} title={`Temperatura de la oportunidad: ${temp}°`}>
+                                                           <TempIcon size={12} className={temp >= 80 ? 'fill-red-600' : temp > 50 ? 'fill-orange-500' : ''}/> 
+                                                           {temp}°
+                                                        </div>
+                                                        {jobXpMap[job.id] > 0 && (<span className="hidden md:flex items-center gap-0.5 text-[9px] font-bold text-yellow-600 bg-yellow-50 px-1 py-0.5 rounded border border-yellow-200" title={`Puntos generados por esfuerzo`}>⭐ {jobXpMap[job.id]}</span>)}
                                                     </div>
+
                                                     <div className="text-[9px] md:text-[10px] text-slate-400 flex items-center gap-1"><Clock size={10}/> {formatDateShort(job.last_updated)}</div>
                                                   </div>
                                                   {job.date_applied && (<div className="bg-green-50 text-green-700 px-1.5 py-1 rounded border border-green-100 text-[9px] md:text-[10px] font-bold flex items-center justify-center gap-1 md:gap-1.5 mt-0.5"><CalendarCheck size={10}/> Postulado: {formatDateShort(job.date_applied)}</div>)}
@@ -354,7 +436,6 @@ useEffect(() => {
                                       );
                                   })}
                                   </div>
-                                  {/* El placeholder se queda fuera del div oculto para que puedas seguir arrastrando tarjetas ahí aunque esté minimizado */}
                                   {provided.placeholder}
                               </div>
                               )}
