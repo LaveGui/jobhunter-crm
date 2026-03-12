@@ -64,14 +64,14 @@ export default function App() {
     let totalXP = 0;
     const activeDates = new Set();
     const xpMap = {}; 
-    const tempMap = {}; // NUEVO: Mapa de Temperaturas
+    const tempMap = {}; 
 
     const today = new Date();
     today.setHours(0,0,0,0);
 
     jobs.forEach(job => {
       let jobXP = 0;
-      let actionScore = 0; // Puntos térmicos sumados
+      let actionScore = 0; 
       let hasInterview = false;
       
       let lastActionDate = job.date_applied ? new Date(job.date_applied) : new Date(job.last_updated || Date.now());
@@ -81,11 +81,13 @@ export default function App() {
       if (job.status === 'Entrevista') { jobXP += 100; hasInterview = true; }
       if (job.status === 'Oferta') { jobXP += 300; hasInterview = true; }
       
-      if (job.date_applied) actionScore += 15; // +15° por aplicar
-
       let logs = [];
       try { logs = typeof job.activity_log === 'string' ? JSON.parse(job.activity_log) : job.activity_log; } catch(e){}
       
+      // 🛠️ FIX 1: Prevenir el doble conteo al postular
+      const hasApplyLog = logs.some(l => l.type === 'apply');
+      if (job.date_applied && !hasApplyLog) actionScore += 15; 
+
       if (logs && logs.length > 0) {
         logs.forEach(log => {
           // XP (Gamificación)
@@ -105,11 +107,10 @@ export default function App() {
           if (log.type === 'viewed_me') actionScore += 25;
           if (log.type === 'called_me') actionScore += 40;
 
-          // Recopilar fechas para calcular racha y última acción
+          // Fechas
           if (log.date) {
             const d = parseEsDate(log.date);
             activeDates.add(new Date(d).setHours(0,0,0,0));
-            
             if (d > lastActionDate) {
               lastActionDate = new Date(d);
               lastActionDate.setHours(0,0,0,0);
@@ -124,15 +125,15 @@ export default function App() {
       // --- CÁLCULO FINAL DE TEMPERATURA ---
       let jobTemp = 0;
       if (hasInterview || job.status === 'Oferta') {
-        jobTemp = 100; // Al máximo
+        jobTemp = 100; // 🛑 El 100° es sagrado para Entrevistas y Ofertas
       } else if (job.status === 'Descartado') {
-        jobTemp = 0; // Muerta
+        jobTemp = 0; 
       } else {
-        // ¿Cuántos días hábiles han pasado desde que hiciste la última acción?
         const daysSinceLastAction = getBusinessDays(lastActionDate, today);
-        const coldPenalty = daysSinceLastAction * 10; // -10° por día hábil
+        const coldPenalty = daysSinceLastAction * 10; 
         
-        jobTemp = Math.max(0, Math.min(100, actionScore - coldPenalty));
+        // 🛑 FIX 2: Techo de cristal en 90° para lo que no sea entrevista
+        jobTemp = Math.max(0, Math.min(90, actionScore - coldPenalty));
       }
       tempMap[job.id] = jobTemp;
     });
