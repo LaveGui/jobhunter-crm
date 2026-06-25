@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from "react-router-dom";
-import { Mail, Phone, MapPin, Linkedin, Trash2, PlusCircle, Printer, ArrowLeft, LayoutTemplate, Globe, Download, ScanEye, Settings, Type, AlignJustify, Bot, Sparkles, Briefcase, CheckCircle, Save, History, FileText } from 'lucide-react'; 
+import { Mail, Phone, MapPin, Linkedin, Trash2, PlusCircle, Printer, ArrowLeft, LayoutTemplate, Globe, Download, ScanEye, Settings, Type, AlignJustify, Briefcase, Save, History } from 'lucide-react'; 
 import useGoogleSheets from './hooks/useGoogleSheets';
 
 // --- COMPONENTE AUXILIAR PARA NEGRITAS Y LISTAS ---
@@ -48,7 +48,7 @@ export default function CVBuilder() {
   const location = useLocation();
   const { jobs, updateJob } = useGoogleSheets();
   
-  // --- ESTADO INICIAL ---
+  // --- ESTADO INICIAL DEL CV ---
   const [cv, setCv] = useState({
     themeColor: '#2563eb',
     personal: {
@@ -84,11 +84,69 @@ export default function CVBuilder() {
   const [debugMode, setDebugMode] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
 
+  // CORRECCIÓN: Los estados de importación JSON van estrictamente AQUÍ (Dentro de CVBuilder)
+  const [mostrarImportJson, setMostrarImportJson] = useState(false);
+  const [jsonImport, setJsonImport] = useState('');
+  const [errorJson, setErrorJson] = useState('');
+
   useEffect(() => {
     if (location.state?.jobContext) {
       setTargetJob(location.state.jobContext);
     }
   }, [location]);
+
+  // CORRECCIÓN: La función ahora lee y modifica correctamente el estado unificado 'cv' (no cvData)
+  const importarDesdeJson = () => {
+    setErrorJson('');
+    
+    let datos;
+    try {
+      datos = JSON.parse(jsonImport);
+    } catch(e) {
+      setErrorJson('JSON inválido. Revisa que esté bien formateado (comillas dobles, comas, etc.).');
+      return;
+    }
+
+    try {
+      setCv(prev => ({
+        ...prev,
+        personal: {
+          ...prev.personal,
+          title: datos.titulo_profesional || prev.personal.title,
+          summary: datos.summary || prev.personal.summary
+        },
+        skills: datos.herramientas || prev.skills,
+        
+        experience: datos.experiencias 
+          ? datos.experiencias.map((exp, index) => ({
+              id: Date.now() + index,
+              role: exp.rol || '',
+              company: exp.empresa || '',
+              date: exp.periodo || '',
+              description: Array.isArray(exp.bullets)
+                ? exp.bullets.join('\n')
+                : (exp.descripcion || '')
+            }))
+          : prev.experience,
+
+        education: datos.educacion
+          ? datos.educacion.map((edu, index) => ({
+              id: Date.now() + index + 50,
+              degree: edu.titulo || '',
+              school: edu.institucion || '',
+              date: edu.periodo || ''
+            }))
+          : prev.education
+      }));
+
+      setMostrarImportJson(false);
+      setJsonImport('');
+
+    } catch(e) {
+      setErrorJson('Error al mapear los campos. Asegúrate de que las llaves coincidan.');
+      console.error(e);
+    }
+  };
 
   // --- HANDLERS BÁSICOS ---
   const handlePersonalChange = (e) => setCv({ ...cv, personal: { ...cv.personal, [e.target.name]: e.target.value } });
@@ -113,7 +171,7 @@ export default function CVBuilder() {
     document.title = originalTitle;
   };
 
-  // --- GUARDAR INTELIGENTE (CORREGIDO) ---
+  // --- GUARDAR INTELIGENTE ---
   const handleSave = async () => {
     if (!targetJob) return;
 
@@ -123,16 +181,14 @@ export default function CVBuilder() {
     let newStatus = targetJob.status;
     let newDateApplied = targetJob.date_applied;
 
-    // Si aún no hemos aplicado, preguntamos si queremos matar dos pájaros de un tiro
     if (!isAlreadyApplied) {
       if (window.confirm(`¿Quieres marcar la oferta en "${targetJob.company}" como APLICADA además de guardar el CV?`)) {
         newStatus = 'Aplicado';
-        newDateApplied = new Date().toISOString().split('T')[0]; // Formato estándar
+        newDateApplied = new Date().toISOString().split('T')[0];
       }
     }
 
     try {
-      // ⚠️ AQUÍ ESTABA EL FALLO: Ahora enviamos TODA la tarjeta usando ...targetJob
       const payload = {
         ...targetJob,
         status: newStatus,
@@ -191,13 +247,7 @@ export default function CVBuilder() {
             }
           }
 
-          return {
-            id: Date.now() + index,
-            company,
-            role,
-            date,
-            description
-          };
+          return { id: Date.now() + index, company, role, date, description };
         });
       }
 
@@ -221,7 +271,6 @@ export default function CVBuilder() {
 
   const pendingJobs = jobs.filter(j => j.status === 'Prospecto');
   const historyJobs = jobs.filter(j => j.cv_text && j.cv_text.length > 10); 
-
   const debugClass = debugMode ? "debug-box" : "";
 
   return (
@@ -247,6 +296,14 @@ export default function CVBuilder() {
                 className={`flex-1 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1 border transition-colors ${showHistory ? 'bg-slate-700 border-slate-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'}`}
              >
                <History size={14}/> Historial CVs
+             </button>
+             
+             {/* CORRECCIÓN: Botón con estilo unificado de Tailwind insertado aquí en la botonería */}
+             <button 
+                onClick={() => setMostrarImportJson(true)}
+                className="flex-1 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold flex items-center justify-center gap-1 transition-colors"
+             >
+               📋 Importar JSON
              </button>
            </div>
 
@@ -285,7 +342,6 @@ export default function CVBuilder() {
                     <button onClick={handlePrint} className="flex-1 bg-white text-slate-900 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1 hover:bg-slate-100">
                       <Download size={14}/> PDF
                     </button>
-                    {/* El botón Guardar ahora SIEMPRE aparece para que puedas actualizar el borrador */}
                     <button onClick={handleSave} className="flex-1 bg-green-600 text-white py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1 hover:bg-green-700 transition-colors">
                       <Save size={14}/> Guardar CV
                     </button>
@@ -310,7 +366,6 @@ export default function CVBuilder() {
         </div>
 
         <div className="p-6 space-y-8 pb-20">
-          {/* === TAB: CONTENIDO === */}
           {activeTab === 'content' && (
             <>
               {/* TEMA & FOTO */}
@@ -421,7 +476,6 @@ export default function CVBuilder() {
               </div>
             </div>
           )}
-
         </div>
       </aside>
 
@@ -431,7 +485,7 @@ export default function CVBuilder() {
           <div className="print-hidden absolute left-0 w-full border-b-2 border-dashed border-red-400 z-50 flex items-end justify-end pointer-events-none opacity-50" style={{ top: '297mm', width: '210mm' }}><span className="bg-red-400 text-white text-[10px] px-2 py-0.5 rounded-t font-bold">FIN DE PÁGINA 1</span></div>
           <div className="cv-container bg-white shadow-2xl w-[210mm] min-h-[297mm] flex items-stretch overflow-hidden" style={{ background: `linear-gradient(90deg, ${cv.themeColor} 0%, ${cv.themeColor} 32%, #ffffff 32%, #ffffff 100%)` }}>
             
-            {/* IZQUIERDA */}
+            {/* COLUMNA IZQUIERDA */}
             <div className={`w-[32%] p-6 pt-10 flex flex-col shrink-0 text-white ${debugClass}`}>
               <div className={`w-28 h-28 rounded-full mx-auto mb-6 overflow-hidden flex items-center justify-center shrink-0 border-4 border-white/30 bg-white/20 ${debugClass}`}>
                  {cv.personal.photoUrl ? <img src={cv.personal.photoUrl} alt="Profile" className="w-full h-full object-cover" crossOrigin="anonymous" /> : <span className="text-4xl font-bold">{cv.personal.name.charAt(0)}</span>}
@@ -439,10 +493,7 @@ export default function CVBuilder() {
               <div className="space-y-8 flex-1">
                 <div className={debugClass}>
                   <h3 className="font-bold uppercase tracking-wider mb-3 pb-1 text-xs border-b border-white/30 text-white/90 flex items-center gap-2"><LayoutTemplate size={12}/> Perfil</h3>
-                  <RichText 
-                    text={cv.personal.summary} 
-                    className="text-[10px] leading-relaxed text-white/90 text-justify"
-                  />
+                  <RichText text={cv.personal.summary} className="text-[10px] leading-relaxed text-white/90 text-justify" />
                 </div>
                 <div className={debugClass}>
                   <h3 className="font-bold uppercase tracking-wider mb-3 pb-1 text-xs border-b border-white/30 text-white/90">Contacto</h3>
@@ -472,7 +523,7 @@ export default function CVBuilder() {
               </div>
             </div>
 
-            {/* DERECHA */}
+            {/* COLUMNA DERECHA */}
             <div className={`w-[68%] p-8 pt-12 flex flex-col text-slate-800 ${debugClass}`}>
               <header className="mb-8 pb-4 shrink-0 border-b-2" style={{ borderColor: cv.themeColor }}>
                 <h1 className="font-extrabold uppercase tracking-tight leading-none mb-2 text-slate-900" style={{ fontSize: `${design.nameSize}px` }}>{cv.personal.name}</h1>
@@ -489,11 +540,7 @@ export default function CVBuilder() {
                         <span className="text-[10px] font-bold px-2 py-1 rounded bg-slate-100 text-slate-500 whitespace-nowrap">{exp.date}</span>
                       </div>
                       <p className="font-bold mb-2" style={{ color: cv.themeColor, fontSize: `${design.companySize}px` }}>{exp.company}</p>
-                      <RichText 
-                        text={exp.description} 
-                        className="text-slate-600"
-                        style={{ fontSize: `${design.textSize}px`, lineHeight: design.lineHeight }}
-                      />
+                      <RichText text={exp.description} className="text-slate-600" style={{ fontSize: `${design.textSize}px`, lineHeight: design.lineHeight }} />
                     </div>
                   ))}
                 </div>
@@ -503,6 +550,47 @@ export default function CVBuilder() {
           </div>
         </div>
       </main>
+
+      {/* CORRECCIÓN: El Modal se monta limpiamente al final del DOM del componente */}
+      {mostrarImportJson && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col border border-slate-200">
+            <div className="p-6 border-b border-slate-100">
+              <h3 className="text-xl font-bold text-slate-900">Importar CV desde JSON</h3>
+              <p className="text-sm text-slate-500 mt-1">
+                Pega el bloque JSON generado por tu asistente de IA para formatear instantáneamente tu currículum.
+              </p>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1 flex flex-col gap-4">
+              <textarea
+                value={jsonImport}
+                onChange={e => setJsonImport(e.target.value)}
+                placeholder={`{\n  "titulo_profesional": "MarTech Specialist",\n  "summary": "...",\n  "herramientas": ["React", "Apps Script"],\n  "experiencias": []\n}`}
+                className="w-full flex-1 min-h-[250px] p-3 font-mono text-xs bg-slate-50 text-slate-800 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
+              />
+              {errorJson && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-xs font-medium text-red-600 flex items-center gap-1.5">⚠️ {errorJson}</p>
+                </div>
+              )}
+            </div>
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+              <button 
+                onClick={() => { setMostrarImportJson(false); setJsonImport(''); setErrorJson(''); }}
+                className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200 rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={importarDesdeJson}
+                className="px-5 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow transition-colors"
+              >
+                ✅ Importar Datos
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
