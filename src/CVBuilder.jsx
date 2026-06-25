@@ -54,7 +54,7 @@ export default function CVBuilder() {
     personal: {
       name: "Guido Lavesari",
       title: "Product Marketing Manager",
-      email: "guido@lavesari.com.ar",
+      email: "glavesari@gmail.com",
       phone: "+34 666 110 145",
       location: "Valencia, España",
       linkedin: "/in/guidolavesari",
@@ -66,7 +66,9 @@ export default function CVBuilder() {
     ],
     education: [
       { id: 1, degree: "Master IA e Innovación", school: "Founderz", date: "2024" },
-      { id: 2, degree: "Postgrado Marketing Digital", school: "Digital House", date: "2016" }
+      { id: 2, degree: "Postgrado Marketing Digital", school: "Digital House", date: "2016" },
+      { id: 3, degree: "Licenciatura en Marketing", school: "UADE", date: "2015" }
+
     ],
     languages: [
       { id: 1, language: "Español", level: "Nativo" },
