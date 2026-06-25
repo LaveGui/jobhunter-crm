@@ -84,7 +84,7 @@ export default function CVBuilder() {
   const [debugMode, setDebugMode] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
 
-  // CORRECCIÓN: Los estados de importación JSON van estrictamente AQUÍ (Dentro de CVBuilder)
+  // Estados de importación JSON
   const [mostrarImportJson, setMostrarImportJson] = useState(false);
   const [jsonImport, setJsonImport] = useState('');
   const [errorJson, setErrorJson] = useState('');
@@ -95,7 +95,7 @@ export default function CVBuilder() {
     }
   }, [location]);
 
-  // CORRECCIÓN: La función ahora lee y modifica correctamente el estado unificado 'cv' (no cvData)
+  // CORRECCIÓN: Soporte híbrido ESP/ENG para evitar pérdidas de mapeo en Experiencia laboral
   const importarDesdeJson = () => {
     setErrorJson('');
     
@@ -103,11 +103,14 @@ export default function CVBuilder() {
     try {
       datos = JSON.parse(jsonImport);
     } catch(e) {
-      setErrorJson('JSON inválido. Revisa que esté bien formateado (comillas dobles, comas, etc.).');
+      setErrorJson('JSON inválido. Revisa que esté bien formato (comillas dobles, comas, etc.).');
       return;
     }
 
     try {
+      // Intentar leer la experiencia tanto si viene como 'experiencias' o 'experiences'
+      const listaExperiencias = datos.experiencias || datos.experiences;
+
       setCv(prev => ({
         ...prev,
         personal: {
@@ -117,15 +120,16 @@ export default function CVBuilder() {
         },
         skills: datos.herramientas || prev.skills,
         
-        experience: datos.experiencias 
-          ? datos.experiencias.map((exp, index) => ({
+        experience: listaExperiencias 
+          ? listaExperiencias.map((exp, index) => ({
               id: Date.now() + index,
-              role: exp.rol || '',
-              company: exp.empresa || '',
-              date: exp.periodo || '',
+              role: exp.rol || exp.role || '', 
+              company: exp.empresa || exp.company || '', 
+              date: exp.periodo || exp.date || '', 
+              bullets: Array.isArray(exp.bullets) ? exp.bullets : null, // Mantenemos el array nativo
               description: Array.isArray(exp.bullets)
                 ? exp.bullets.join('\n')
-                : (exp.descripcion || '')
+                : (exp.descripcion || exp.description || '')
             }))
           : prev.experience,
 
@@ -298,7 +302,6 @@ export default function CVBuilder() {
                <History size={14}/> Historial CVs
              </button>
              
-             {/* CORRECCIÓN: Botón con estilo unificado de Tailwind insertado aquí en la botonería */}
              <button 
                 onClick={() => setMostrarImportJson(true)}
                 className="flex-1 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold flex items-center justify-center gap-1 transition-colors"
@@ -523,55 +526,51 @@ export default function CVBuilder() {
               </div>
             </div>
 
-                  {/* COLUMNA DERECHA - SECCIÓN EXPERIENCIA */}
-<div className={`w-[68%] p-8 pt-12 flex flex-col text-slate-800 ${debugClass}`}>
-  <header className="mb-8 pb-4 shrink-0 border-b-2" style={{ borderColor: cv.themeColor }}>
-    <h1 className="font-extrabold uppercase tracking-tight leading-none mb-2 text-slate-900" style={{ fontSize: `${design.nameSize}px` }}>{cv.personal.name}</h1>
-    <h2 className="font-bold tracking-wide" style={{ color: cv.themeColor, fontSize: '18px' }}>{cv.personal.title}</h2>
-  </header>
-  <section className="flex-1">
-    <h3 className="text-xs font-bold uppercase tracking-wider mb-6 flex items-center gap-2 text-slate-600"><span className="p-1 rounded flex items-center justify-center w-5 h-5 text-white" style={{ backgroundColor: cv.themeColor }}><LayoutTemplate size={12}/></span> <span className="mt-[1px]">Experiencia Profesional</span></h3>
-    <div style={{ display: 'flex', flexDirection: 'column', gap: `${design.sectionGap}px` }}>
-      {cv.experience.map((exp) => (
-        <div key={exp.id} className={`relative pl-4 border-l-2 ${debugClass}`} style={{ borderColor: cv.themeColor + '40' }}>
-          <div className="absolute top-[5px] w-2 h-2 rounded-full -left-[5px]" style={{ backgroundColor: cv.themeColor }}></div>
-          <div className="flex justify-between items-center mb-1">
-            <h4 className="font-bold text-slate-900" style={{ fontSize: `${design.roleSize}px` }}>{exp.role}</h4>
-            <span className="text-[10px] font-bold px-2 py-1 rounded bg-slate-100 text-slate-500 whitespace-nowrap">{exp.date}</span>
-          </div>
-          <p className="font-bold mb-2" style={{ color: cv.themeColor, fontSize: `${design.companySize}px` }}>{exp.company}</p>
-          
-          {/* ======================================================= */}
-          {/* MODIFICACIÓN AQUÍ: RENDERIZADO MÓDULO HÍBRIDO DE BULLETS */}
-          {/* ======================================================= */}
-          <div className="text-slate-600" style={{ fontSize: `${design.textSize}px`, lineHeight: design.lineHeight }}>
-            {exp.bullets && Array.isArray(exp.bullets) ? (
-              <div className="space-y-1">
-                {exp.bullets.map((bullet, i) => (
-                  <div key={i} className="flex items-start gap-2 ml-1 relative">
-                    <span className="mt-[0.4em] w-1 h-1 rounded-full bg-current shrink-0 opacity-70"></span>
-                    <RichText text={bullet} className="flex-1" />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              // Fallback por si la experiencia tiene formato antiguo de string plano (description)
-              <RichText text={exp.description} />
-            )}
-          </div>
-          {/* ======================================================= */}
-          
-        </div>
-      ))}
-    </div>
-  </section>
-  </div>
+            {/* COLUMNA DERECHA - SECCIÓN EXPERIENCIA */}
+            <div className={`w-[68%] p-8 pt-12 flex flex-col text-slate-800 ${debugClass}`}>
+              <header className="mb-8 pb-4 shrink-0 border-b-2" style={{ borderColor: cv.themeColor }}>
+                <h1 className="font-extrabold uppercase tracking-tight leading-none mb-2 text-slate-900" style={{ fontSize: `${design.nameSize}px` }}>{cv.personal.name}</h1>
+                <h2 className="font-bold tracking-wide" style={{ color: cv.themeColor, fontSize: '18px' }}>{cv.personal.title}</h2>
+              </header>
+              <section className="flex-1">
+                <h3 className="text-xs font-bold uppercase tracking-wider mb-6 flex items-center gap-2 text-slate-600"><span className="p-1 rounded flex items-center justify-center w-5 h-5 text-white" style={{ backgroundColor: cv.themeColor }}><LayoutTemplate size={12}/></span> <span className="mt-[1px]">Experiencia Profesional</span></h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: `${design.sectionGap}px` }}>
+                  {cv.experience.map((exp) => (
+                    <div key={exp.id} className={`relative pl-4 border-l-2 ${debugClass}`} style={{ borderColor: cv.themeColor + '40' }}>
+                      <div className="absolute top-[5px] w-2 h-2 rounded-full -left-[5px]" style={{ backgroundColor: cv.themeColor }}></div>
+                      <div className="flex justify-between items-center mb-1">
+                        <h4 className="font-bold text-slate-900" style={{ fontSize: `${design.roleSize}px` }}>{exp.role}</h4>
+                        <span className="text-[10px] font-bold px-2 py-1 rounded bg-slate-100 text-slate-500 whitespace-nowrap">{exp.date}</span>
+                      </div>
+                      <p className="font-bold mb-2" style={{ color: cv.themeColor, fontSize: `${design.companySize}px` }}>{exp.company}</p>
+                      
+                      {/* RENDERIZADO MÓDULO HÍBRIDO DE BULLETS */}
+                      <div className="text-slate-600" style={{ fontSize: `${design.textSize}px`, lineHeight: design.lineHeight }}>
+                        {exp.bullets && Array.isArray(exp.bullets) ? (
+                          <div className="space-y-1">
+                            {exp.bullets.map((bullet, i) => (
+                              <div key={i} className="flex items-start gap-2 ml-1 relative">
+                                <span className="mt-[0.4em] w-1 h-1 rounded-full bg-current shrink-0 opacity-70"></span>
+                                <RichText text={bullet} className="flex-1" />
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          // Fallback por si no viene el array estructurado y lee desde description (texto plano)
+                          <RichText text={exp.description} />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </div>
 
           </div>
         </div>
       </main>
 
-      {/* CORRECCIÓN: El Modal se monta limpiamente al final del DOM del componente */}
+      {/* MODAL PARA IMPORTAR DESDE JSON */}
       {mostrarImportJson && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col border border-slate-200">
@@ -585,7 +584,7 @@ export default function CVBuilder() {
               <textarea
                 value={jsonImport}
                 onChange={e => setJsonImport(e.target.value)}
-                placeholder={`{\n  "titulo_profesional": "MarTech Specialist",\n  "summary": "...",\n  "herramientas": ["React", "Apps Script"],\n  "experiencias": []\n}`}
+                placeholder={`{\n  "titulo_profesional": "MarTech Specialist",\n  "summary": "...",\n  "herramientas": ["React", "Apps Script"],\n  "experiences": []\n}`}
                 className="w-full flex-1 min-h-[250px] p-3 font-mono text-xs bg-slate-50 text-slate-800 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
               />
               {errorJson && (
