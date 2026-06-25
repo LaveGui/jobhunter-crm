@@ -95,68 +95,69 @@ export default function CVBuilder() {
     }
   }, [location]);
 
-  // CORRECCIÓN: Soporte híbrido ESP/ENG y unificación en 'description' para permitir edición limpia
-const importarDesdeJson = () => {
-  setErrorJson('');
-  
-  let datos;
-  try {
-    datos = JSON.parse(jsonImport);
-  } catch(e) {
-    setErrorJson('JSON inválido. Revisa que esté bien formateado (comillas dobles, comas, etc.).');
-    return;
-  }
+  const importarDesdeJson = () => {
+    setErrorJson('');
+    
+    let datos;
+    try {
+      datos = JSON.parse(jsonImport);
+    } catch(e) {
+      setErrorJson('JSON inválido. Revisa que esté bien formateado (comillas dobles, comas, etc.).');
+      return;
+    }
 
-  try {
-    const listaExperiencias = datos.experiencias || datos.experiences;
+    try {
+      const listaExperiencias = datos.experiencias || datos.experiences;
 
-    setCv(prev => ({
-      ...prev,
-      personal: {
-        ...prev.personal,
-        title: datos.titulo_profesional || prev.personal.title,
-        summary: datos.summary || prev.personal.summary
-      },
-      skills: datos.herramientas || prev.skills,
-      
-      experience: listaExperiencias 
-        ? listaExperiencias.map((exp, index) => {
-            // Unificamos los bullets del JSON en un solo string plano con saltos de línea
-            let finalDescription = '';
-            if (Array.isArray(exp.bullets)) {
-              finalDescription = exp.bullets.map(b => b.trim().startsWith('-') ? b : `- ${b}`).join('\n');
-            } else {
-              finalDescription = exp.descripcion || exp.description || '';
-            }
+      setCv(prev => ({
+        ...prev,
+        personal: {
+          ...prev.personal,
+          title: datos.titulo_profesional || prev.personal.title,
+          summary: datos.summary || prev.personal.summary
+        },
+        skills: datos.herramientas || prev.skills,
+        
+        experience: listaExperiencias 
+          ? listaExperiencias.map((exp, index) => {
+              // Convertimos el array de bullets a un único string con saltos de línea y guiones nativos
+              let textDescription = '';
+              if (Array.isArray(exp.bullets)) {
+                textDescription = exp.bullets
+                  .map(b => b.trim().startsWith('-') || b.trim().startsWith('•') ? b : `- ${b}`)
+                  .join('\n');
+              } else {
+                textDescription = exp.descripcion || exp.description || '';
+              }
 
-            return {
-              id: Date.now() + index,
-              role: exp.rol || exp.role || '', 
-              company: exp.empresa || exp.company || '', 
-              date: exp.periodo || exp.date || '', 
-              description: finalDescription // Almacenamos todo aquí
-              // Al NO declarar la propiedad 'bullets', el preview usará description por defecto y será 100% editable
-            };
-          })
-        : prev.experience,
+              return {
+                id: Date.now() + index,
+                role: exp.rol || exp.role || '', 
+                company: exp.empresa || exp.company || '', 
+                date: exp.periodo || exp.date || '', 
+                description: textDescription // Guardamos todo aquí de forma unificada
+                // NOTA: Al no incluir la propiedad 'bullets', rompemos el candado que bloqueaba la edición
+              };
+            })
+          : prev.experience,
 
-      education: datos.educacion
-        ? datos.educacion.map((edu, index) => ({
-            id: Date.now() + index + 50,
-            degree: edu.titulo || '',
-            school: edu.institucion || '',
-            date: edu.periodo || ''
-          }))
-        : prev.education
-    }));
+        education: datos.educacion
+          ? datos.educacion.map((edu, index) => ({
+              id: Date.now() + index + 50,
+              degree: edu.titulo || '',
+              school: edu.institucion || '',
+              date: edu.periodo || ''
+            }))
+          : prev.education
+      }));
 
-    setMostrarImportJson(false);
-    setJsonImport('');
+      setMostrarImportJson(false);
+      setJsonImport('');
 
-  } catch(e) {
-    setErrorJson('Error al mapear los campos. Asegúrate de que las llaves coincidan.');
-    console.error(e);
-  }
+    } catch(e) {
+      setErrorJson('Error al mapear los campos. Asegúrate de que las llaves coincidan.');
+      console.error(e);
+    }
   };
 
   // --- HANDLERS BÁSICOS ---
