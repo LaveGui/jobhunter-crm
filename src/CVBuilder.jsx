@@ -523,29 +523,49 @@ export default function CVBuilder() {
               </div>
             </div>
 
-            {/* COLUMNA DERECHA */}
-            <div className={`w-[68%] p-8 pt-12 flex flex-col text-slate-800 ${debugClass}`}>
-              <header className="mb-8 pb-4 shrink-0 border-b-2" style={{ borderColor: cv.themeColor }}>
-                <h1 className="font-extrabold uppercase tracking-tight leading-none mb-2 text-slate-900" style={{ fontSize: `${design.nameSize}px` }}>{cv.personal.name}</h1>
-                <h2 className="font-bold tracking-wide" style={{ color: cv.themeColor, fontSize: '18px' }}>{cv.personal.title}</h2>
-              </header>
-              <section className="flex-1">
-                <h3 className="text-xs font-bold uppercase tracking-wider mb-6 flex items-center gap-2 text-slate-600"><span className="p-1 rounded flex items-center justify-center w-5 h-5 text-white" style={{ backgroundColor: cv.themeColor }}><LayoutTemplate size={12}/></span> <span className="mt-[1px]">Experiencia Profesional</span></h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: `${design.sectionGap}px` }}>
-                  {cv.experience.map((exp) => (
-                    <div key={exp.id} className={`relative pl-4 border-l-2 ${debugClass}`} style={{ borderColor: cv.themeColor + '40' }}>
-                      <div className="absolute top-[5px] w-2 h-2 rounded-full -left-[5px]" style={{ backgroundColor: cv.themeColor }}></div>
-                      <div className="flex justify-between items-center mb-1">
-                        <h4 className="font-bold text-slate-900" style={{ fontSize: `${design.roleSize}px` }}>{exp.role}</h4>
-                        <span className="text-[10px] font-bold px-2 py-1 rounded bg-slate-100 text-slate-500 whitespace-nowrap">{exp.date}</span>
-                      </div>
-                      <p className="font-bold mb-2" style={{ color: cv.themeColor, fontSize: `${design.companySize}px` }}>{exp.company}</p>
-                      <RichText text={exp.description} className="text-slate-600" style={{ fontSize: `${design.textSize}px`, lineHeight: design.lineHeight }} />
-                    </div>
-                  ))}
-                </div>
-              </section>
-            </div>
+                  {/* COLUMNA DERECHA - SECCIÓN EXPERIENCIA */}
+<div className={`w-[68%] p-8 pt-12 flex flex-col text-slate-800 ${debugClass}`}>
+  <header className="mb-8 pb-4 shrink-0 border-b-2" style={{ borderColor: cv.themeColor }}>
+    <h1 className="font-extrabold uppercase tracking-tight leading-none mb-2 text-slate-900" style={{ fontSize: `${design.nameSize}px` }}>{cv.personal.name}</h1>
+    <h2 className="font-bold tracking-wide" style={{ color: cv.themeColor, fontSize: '18px' }}>{cv.personal.title}</h2>
+  </header>
+  <section className="flex-1">
+    <h3 className="text-xs font-bold uppercase tracking-wider mb-6 flex items-center gap-2 text-slate-600"><span className="p-1 rounded flex items-center justify-center w-5 h-5 text-white" style={{ backgroundColor: cv.themeColor }}><LayoutTemplate size={12}/></span> <span className="mt-[1px]">Experiencia Profesional</span></h3>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: `${design.sectionGap}px` }}>
+      {cv.experience.map((exp) => (
+        <div key={exp.id} className={`relative pl-4 border-l-2 ${debugClass}`} style={{ borderColor: cv.themeColor + '40' }}>
+          <div className="absolute top-[5px] w-2 h-2 rounded-full -left-[5px]" style={{ backgroundColor: cv.themeColor }}></div>
+          <div className="flex justify-between items-center mb-1">
+            <h4 className="font-bold text-slate-900" style={{ fontSize: `${design.roleSize}px` }}>{exp.role}</h4>
+            <span className="text-[10px] font-bold px-2 py-1 rounded bg-slate-100 text-slate-500 whitespace-nowrap">{exp.date}</span>
+          </div>
+          <p className="font-bold mb-2" style={{ color: cv.themeColor, fontSize: `${design.companySize}px` }}>{exp.company}</p>
+          
+          {/* ======================================================= */}
+          {/* MODIFICACIÓN AQUÍ: RENDERIZADO MÓDULO HÍBRIDO DE BULLETS */}
+          {/* ======================================================= */}
+          <div className="text-slate-600" style={{ fontSize: `${design.textSize}px`, lineHeight: design.lineHeight }}>
+            {exp.bullets && Array.isArray(exp.bullets) ? (
+              <div className="space-y-1">
+                {exp.bullets.map((bullet, i) => (
+                  <div key={i} className="flex items-start gap-2 ml-1 relative">
+                    <span className="mt-[0.4em] w-1 h-1 rounded-full bg-current shrink-0 opacity-70"></span>
+                    <RichText text={bullet} className="flex-1" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              // Fallback por si la experiencia tiene formato antiguo de string plano (description)
+              <RichText text={exp.description} />
+            )}
+          </div>
+          {/* ======================================================= */}
+          
+        </div>
+      ))}
+    </div>
+  </section>
+  </div>
 
           </div>
         </div>
