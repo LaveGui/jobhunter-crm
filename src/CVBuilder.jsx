@@ -44,6 +44,36 @@ const cvToString = (cv) => {
   return text;
 };
 
+// --- DICCIONARIO PARA PASAR SECCIONES AL INGLÉS ---
+const TRANSLATIONS = {
+  es: {
+    profile: "Perfil",
+    contact: "Contacto",
+    skills: "Skills",
+    education: "Educación",
+    languages: "Idiomas",
+    experience: "Experiencia Profesional",
+    // Traducciones automáticas para la sección de idiomas
+    "Español": "Spanish",
+    "Inglés": "English",
+    "Nativo": "Native",
+    "Avanzado": "Advanced"
+  },
+  en: {
+    profile: "Profile",
+    contact: "Personal Information",
+    skills: "Skills",
+    education: "Education",
+    languages: "Languages",
+    experience: "Professional Experience",
+    // Traducciones automáticas para la sección de idiomas
+    "Español": "Spanish",
+    "Inglés": "English",
+    "Nativo": "Native",
+    "Avanzado": "Advanced"
+  }
+};
+
 export default function CVBuilder() {
   const location = useLocation();
   const { jobs, updateJob } = useGoogleSheets();
@@ -68,7 +98,6 @@ export default function CVBuilder() {
       { id: 1, degree: "Master IA e Innovación", school: "Founderz", date: "2024" },
       { id: 2, degree: "Postgrado Marketing Digital", school: "Digital House", date: "2016" },
       { id: 3, degree: "Licenciatura en Marketing", school: "UADE", date: "2015" }
-
     ],
     languages: [
       { id: 1, language: "Español", level: "Nativo" },
@@ -85,6 +114,7 @@ export default function CVBuilder() {
   const [activeTab, setActiveTab] = useState('content'); 
   const [debugMode, setDebugMode] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [lang, setLang] = useState('es'); // Estado del idioma asignado por defecto
 
   // Estados de importación JSON
   const [mostrarImportJson, setMostrarImportJson] = useState(false);
@@ -97,6 +127,9 @@ export default function CVBuilder() {
     }
   }, [location]);
 
+  // Función de traducción
+  const t = (key) => TRANSLATIONS[lang][key] || key;
+
   const importarDesdeJson = () => {
     setErrorJson('');
     
@@ -104,7 +137,7 @@ export default function CVBuilder() {
     try {
       datos = JSON.parse(jsonImport);
     } catch(e) {
-      setErrorJson('JSON inválido. Revisa que esté bien formateado (comillas dobles, comas, etc.).');
+      setErrorJson('JSON inválido. Revisa que esté bien formatted (comillas dobles, comas, etc.).');
       return;
     }
 
@@ -122,7 +155,6 @@ export default function CVBuilder() {
         
         experience: listaExperiencias 
           ? listaExperiencias.map((exp, index) => {
-              // Convertimos el array de bullets a un único string con saltos de línea y guiones nativos
               let textDescription = '';
               if (Array.isArray(exp.bullets)) {
                 textDescription = exp.bullets
@@ -137,8 +169,8 @@ export default function CVBuilder() {
                 role: exp.rol || exp.role || '', 
                 company: exp.empresa || exp.company || '', 
                 date: exp.periodo || exp.date || '', 
-                description: textDescription // Guardamos todo aquí de forma unificada
-                // NOTA: Al no incluir la propiedad 'bullets', rompemos el candado que bloqueaba la edición
+                description: textDescription
+                // Al NO incluir la propiedad 'bullets', desbloqueamos la edición del preview
               };
             })
           : prev.experience,
@@ -279,7 +311,7 @@ export default function CVBuilder() {
 
     } catch (e) {
       console.error(e);
-      alert("❌ No se pudo importar este formato (es demasiado antiguo o diferente).");
+      alert("❌ No se pudo importar este formato.");
     }
   };
 
@@ -303,6 +335,19 @@ export default function CVBuilder() {
               </div>
            </div>
 
+           {/* SELECTOR DE IDIOMA DEL CV */}
+          <div className="flex-1 flex items-center gap-2 bg-slate-800 p-1.5 rounded border border-slate-700 mb-3">
+            <Globe size={14} className="text-slate-400 ml-1" />
+            <select 
+              value={lang} 
+              onChange={(e) => setLang(e.target.value)}
+              className="bg-transparent text-xs font-bold text-white outline-none cursor-pointer w-full"
+            >
+              <option value="es" className="text-slate-900">🇪🇸 Español (ES)</option>
+              <option value="en" className="text-slate-900">🇬🇧 Inglés (EN)</option>
+            </select>
+          </div>
+
            {/* CONTROLES PRINCIPALES */}
            <div className="flex gap-2 mb-3">
              <button 
@@ -320,7 +365,7 @@ export default function CVBuilder() {
              </button>
            </div>
 
-           {/* MODAL DESPLEGABLE DE HISTORIAL */}
+           {/* HISTORIAL DESPLEGABLE */}
            {showHistory && (
              <div className="bg-white text-slate-800 rounded shadow-xl border border-slate-200 mb-3 overflow-hidden animate-fadeIn">
                <div className="bg-slate-100 p-2 text-xs font-bold text-slate-500 uppercase border-b">Reutilizar contenido de:</div>
@@ -343,7 +388,7 @@ export default function CVBuilder() {
              </div>
            )}
 
-           {/* ZONA DE VINCULACIÓN (Target Job) */}
+           {/* TARGET JOB VINCULACIÓN */}
            <div className="bg-slate-800 rounded p-2 border border-slate-700">
               {targetJob ? (
                 <div className="flex flex-col gap-2">
@@ -401,7 +446,6 @@ export default function CVBuilder() {
                 
                 <label className="block text-[10px] text-gray-400 uppercase font-bold mt-2">Resumen Perfil (Barra Lateral)</label>
                 <textarea name="summary" placeholder="Perfil profesional..." value={cv.personal.summary} onChange={handlePersonalChange} className="w-full border p-2 rounded text-sm h-24" />
-                <p className="text-[10px] text-gray-400">Tip: Usa **negrita** para resaltar y guiones - para listas.</p>
 
                 <div className="grid grid-cols-2 gap-2 text-xs mt-2">
                   <input name="email" placeholder="Email" value={cv.personal.email} onChange={handlePersonalChange} className="border p-2 rounded" />
@@ -468,7 +512,7 @@ export default function CVBuilder() {
             </>
           )}
 
-          {/* === TAB: DISEÑO === */}
+          {/* TAB: DISEÑO */}
           {activeTab === 'design' && (
             <div className="space-y-6">
               <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
@@ -498,18 +542,18 @@ export default function CVBuilder() {
           <div className="print-hidden absolute left-0 w-full border-b-2 border-dashed border-red-400 z-50 flex items-end justify-end pointer-events-none opacity-50" style={{ top: '297mm', width: '210mm' }}><span className="bg-red-400 text-white text-[10px] px-2 py-0.5 rounded-t font-bold">FIN DE PÁGINA 1</span></div>
           <div className="cv-container bg-white shadow-2xl w-[210mm] min-h-[297mm] flex items-stretch overflow-hidden" style={{ background: `linear-gradient(90deg, ${cv.themeColor} 0%, ${cv.themeColor} 32%, #ffffff 32%, #ffffff 100%)` }}>
             
-            {/* COLUMNA IZQUIERDA */}
+            {/* COLUMNA IZQUIERDA (DINÁMICA TRADUCIBLE) */}
             <div className={`w-[32%] p-6 pt-10 flex flex-col shrink-0 text-white ${debugClass}`}>
               <div className={`w-28 h-28 rounded-full mx-auto mb-6 overflow-hidden flex items-center justify-center shrink-0 border-4 border-white/30 bg-white/20 ${debugClass}`}>
                  {cv.personal.photoUrl ? <img src={cv.personal.photoUrl} alt="Profile" className="w-full h-full object-cover" crossOrigin="anonymous" /> : <span className="text-4xl font-bold">{cv.personal.name.charAt(0)}</span>}
               </div>
               <div className="space-y-8 flex-1">
                 <div className={debugClass}>
-                  <h3 className="font-bold uppercase tracking-wider mb-3 pb-1 text-xs border-b border-white/30 text-white/90 flex items-center gap-2"><LayoutTemplate size={12}/> Perfil</h3>
+                  <h3 className="font-bold uppercase tracking-wider mb-3 pb-1 text-xs border-b border-white/30 text-white/90 flex items-center gap-2"><LayoutTemplate size={12}/> {t('profile')}</h3>
                   <RichText text={cv.personal.summary} className="text-[10px] leading-relaxed text-white/90 text-justify" />
                 </div>
                 <div className={debugClass}>
-                  <h3 className="font-bold uppercase tracking-wider mb-3 pb-1 text-xs border-b border-white/30 text-white/90">Contacto</h3>
+                  <h3 className="font-bold uppercase tracking-wider mb-3 pb-1 text-xs border-b border-white/30 text-white/90">{t('contact')}</h3>
                   <ul className="space-y-3 text-[10px] text-white/90">
                     <li className="flex items-center gap-3"><div className="shrink-0"><Phone size={12}/></div> <span>{cv.personal.phone}</span></li>
                     <li className="flex items-center gap-3"><div className="shrink-0"><Mail size={12}/></div> <span className="break-all">{cv.personal.email}</span></li>
@@ -518,32 +562,40 @@ export default function CVBuilder() {
                   </ul>
                 </div>
                 <div className={debugClass}>
-                  <h3 className="font-bold uppercase tracking-wider mb-3 pb-1 text-xs border-b border-white/30 text-white/90">Skills</h3>
+                  <h3 className="font-bold uppercase tracking-wider mb-3 pb-1 text-xs border-b border-white/30 text-white/90">{t('skills')}</h3>
                   <div className="flex flex-wrap gap-2">{cv.skills.map((s, i) => <span key={i} className="px-2 py-1 rounded text-[10px] bg-white/20 text-white flex items-center justify-center">{s}</span>)}</div>
                 </div>
                 <div className={debugClass}>
-                  <h3 className="font-bold uppercase tracking-wider mb-3 pb-1 text-xs border-b border-white/30 text-white/90">Educación</h3>
+                  <h3 className="font-bold uppercase tracking-wider mb-3 pb-1 text-xs border-b border-white/30 text-white/90">{t('education')}</h3>
                   {cv.education.map((edu) => (
                      <div key={edu.id} className="mb-4 text-white/90"><p className="font-bold text-[10px] mb-0.5">{edu.degree}</p><p className="text-[9px] opacity-80">{edu.school}</p><p className="text-[9px] opacity-80">{edu.date}</p></div>
                   ))}
                 </div>
                 <div className={debugClass}>
-                  <h3 className="font-bold uppercase tracking-wider mb-3 pb-1 text-xs border-b border-white/30 text-white/90">Idiomas</h3>
-                  {cv.languages.map((lang) => (
-                    <div key={lang.id} className="mb-2 flex justify-between items-baseline text-[10px] text-white/90"><span className="font-semibold">{lang.language}</span><span className="opacity-80">{lang.level}</span></div>
+                  <h3 className="font-bold uppercase tracking-wider mb-3 pb-1 text-xs border-b border-white/30 text-white/90">{t('languages')}</h3>
+                  {cv.languages.map((langItem) => (
+                    <div key={langItem.id} className="mb-2 flex justify-between items-baseline text-[10px] text-white/90">
+                      <span className="font-semibold">{t(langItem.language)}</span>
+                      <span className="opacity-80">{t(langItem.level)}</span>
+                    </div>
                   ))}
                 </div>
               </div>
             </div>
 
-            {/* COLUMNA DERECHA - SECCIÓN EXPERIENCIA */}
+            {/* COLUMNA DERECHA (100% TRADUCIBLE Y EDITABLE) */}
             <div className={`w-[68%] p-8 pt-12 flex flex-col text-slate-800 ${debugClass}`}>
               <header className="mb-8 pb-4 shrink-0 border-b-2" style={{ borderColor: cv.themeColor }}>
                 <h1 className="font-extrabold uppercase tracking-tight leading-none mb-2 text-slate-900" style={{ fontSize: `${design.nameSize}px` }}>{cv.personal.name}</h1>
                 <h2 className="font-bold tracking-wide" style={{ color: cv.themeColor, fontSize: '18px' }}>{cv.personal.title}</h2>
               </header>
               <section className="flex-1">
-                <h3 className="text-xs font-bold uppercase tracking-wider mb-6 flex items-center gap-2 text-slate-600"><span className="p-1 rounded flex items-center justify-center w-5 h-5 text-white" style={{ backgroundColor: cv.themeColor }}><LayoutTemplate size={12}/></span> <span className="mt-[1px]">Experiencia Profesional</span></h3>
+                <h3 className="text-xs font-bold uppercase tracking-wider mb-6 flex items-center gap-2 text-slate-600">
+                  <span className="p-1 rounded flex items-center justify-center w-5 h-5 text-white" style={{ backgroundColor: cv.themeColor }}>
+                    <LayoutTemplate size={12}/>
+                  </span> 
+                  <span className="mt-[1px]">{t('experience')}</span>
+                </h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: `${design.sectionGap}px` }}>
                   {cv.experience.map((exp) => (
                     <div key={exp.id} className={`relative pl-4 border-l-2 ${debugClass}`} style={{ borderColor: cv.themeColor + '40' }}>
@@ -554,21 +606,9 @@ export default function CVBuilder() {
                       </div>
                       <p className="font-bold mb-2" style={{ color: cv.themeColor, fontSize: `${design.companySize}px` }}>{exp.company}</p>
                       
-                      {/* RENDERIZADO MÓDULO HÍBRIDO DE BULLETS */}
+                      {/* SOLUCIÓN DE EDICIÓN: Renderizado directo mediante RichText mapeando el string 'description' */}
                       <div className="text-slate-600" style={{ fontSize: `${design.textSize}px`, lineHeight: design.lineHeight }}>
-                        {exp.bullets && Array.isArray(exp.bullets) ? (
-                          <div className="space-y-1">
-                            {exp.bullets.map((bullet, i) => (
-                              <div key={i} className="flex items-start gap-2 ml-1 relative">
-                                <span className="mt-[0.4em] w-1 h-1 rounded-full bg-current shrink-0 opacity-70"></span>
-                                <RichText text={bullet} className="flex-1" />
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          // Fallback por si no viene el array estructurado y lee desde description (texto plano)
-                          <RichText text={exp.description} />
-                        )}
+                        <RichText text={exp.description} />
                       </div>
                     </div>
                   ))}
@@ -580,42 +620,30 @@ export default function CVBuilder() {
         </div>
       </main>
 
-      {/* MODAL PARA IMPORTAR DESDE JSON */}
+      {/* MODAL JSON */}
       {mostrarImportJson && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col border border-slate-200">
             <div className="p-6 border-b border-slate-100">
               <h3 className="text-xl font-bold text-slate-900">Importar CV desde JSON</h3>
-              <p className="text-sm text-slate-500 mt-1">
-                Pega el bloque JSON generado por tu asistente de IA para formatear instantáneamente tu currículum.
-              </p>
+              <p className="text-sm text-slate-500 mt-1">Pega el bloque JSON generado por tu IA.</p>
             </div>
             <div className="p-6 overflow-y-auto flex-1 flex flex-col gap-4">
               <textarea
                 value={jsonImport}
                 onChange={e => setJsonImport(e.target.value)}
                 placeholder={`{\n  "titulo_profesional": "MarTech Specialist",\n  "summary": "...",\n  "herramientas": ["React", "Apps Script"],\n  "experiences": []\n}`}
-                className="w-full flex-1 min-h-[250px] p-3 font-mono text-xs bg-slate-50 text-slate-800 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
+                className="w-full flex-1 min-h-[250px] p-3 font-mono text-xs bg-slate-50 text-slate-800 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none"
               />
               {errorJson && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-xs font-medium text-red-600 flex items-center gap-1.5">⚠️ {errorJson}</p>
+                  <p className="text-xs font-medium text-red-600">⚠️ {errorJson}</p>
                 </div>
               )}
             </div>
             <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
-              <button 
-                onClick={() => { setMostrarImportJson(false); setJsonImport(''); setErrorJson(''); }}
-                className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200 rounded-lg transition-colors"
-              >
-                Cancelar
-              </button>
-              <button 
-                onClick={importarDesdeJson}
-                className="px-5 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow transition-colors"
-              >
-                ✅ Importar Datos
-              </button>
+              <button onClick={() => { setMostrarImportJson(false); setJsonImport(''); setErrorJson(''); }} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200 rounded-lg">Cancelar</button>
+              <button onClick={importarDesdeJson} className="px-5 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow">✅ Importar Datos</button>
             </div>
           </div>
         </div>
