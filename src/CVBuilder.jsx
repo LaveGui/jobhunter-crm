@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from "react-router-dom";
-import { Mail, Phone, MapPin, Linkedin, Trash2, PlusCircle, Printer, ArrowLeft, LayoutTemplate, Globe, Download, ScanEye, Settings, Type, AlignJustify, Briefcase, Save, History } from 'lucide-react'; 
+import { Mail, Phone, MapPin, Linkedin, Trash2, PlusCircle, Printer, ArrowLeft, LayoutTemplate, Globe, Download, ScanEye, Settings, Type, AlignJustify, Briefcase, Save, History, Sparkles } from 'lucide-react'; 
 import useGoogleSheets from './hooks/useGoogleSheets';
 
 // --- COMPONENTE AUXILIAR PARA NEGRITAS Y LISTAS ---
@@ -53,7 +53,6 @@ const TRANSLATIONS = {
     education: "Educación",
     languages: "Idiomas",
     experience: "Experiencia Profesional",
-    // Traducciones automáticas para la sección de idiomas
     "Español": "Spanish",
     "Inglés": "English",
     "Nativo": "Native",
@@ -66,7 +65,6 @@ const TRANSLATIONS = {
     education: "Education",
     languages: "Languages",
     experience: "Professional Experience",
-    // Traducciones automáticas para la sección de idiomas
     "Español": "Spanish",
     "Inglés": "English",
     "Nativo": "Native",
@@ -114,7 +112,7 @@ export default function CVBuilder() {
   const [activeTab, setActiveTab] = useState('content'); 
   const [debugMode, setDebugMode] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-  const [lang, setLang] = useState('es'); // Estado del idioma asignado por defecto
+  const [lang, setLang] = useState('es');
 
   // Estados de importación JSON
   const [mostrarImportJson, setMostrarImportJson] = useState(false);
@@ -127,12 +125,56 @@ export default function CVBuilder() {
     }
   }, [location]);
 
-  // Función de traducción
   const t = (key) => TRANSLATIONS[lang][key] || key;
+
+  // --- FUNCIÓN ADICIONAL: GENERAR Y COPIAR PROMPT INTELIGENTE ---
+  const copiarPromptParaGem = () => {
+    if (!targetJob) return;
+
+    const promptEstructurado = `Actúa como un experto en copy y selección de personal en el sector MarTech. 
+Quiero adaptar mi currículum para la siguiente oportunidad laboral:
+
+- **Empresa:** ${targetJob.company || 'N/A'}
+- **Puesto:** ${targetJob.role || 'N/A'}
+- **Descripción de la Oferta:** 
+${targetJob.description || 'N/A'}
+
+---
+
+**REQUISITOS ESTRICTOS DE SALIDA (OUTPUT):**
+Devuélveme un objeto JSON con el siguiente formato exacto, optimizando mis experiencias previas para que encajen con esta oferta.
+
+1. El diseño final debe entrar estrictamente en **1 página A4**.
+2. Selecciona como máximo las **6 experiencias laborales más relevantes** para este puesto.
+3. Cada experiencia debe tener como máximo **4 bullets** (logros medibles e impactantes).
+4. El output debe ser exclusivamente el JSON limpio, sin texto introductorio ni bloques de código markdown, estructurado exactamente con estas llaves:
+
+{
+  "titulo_profesional": "Tu título optimizado aquí",
+  "summary": "Resumen profesional de impacto con palabras clave de la oferta usando **negritas**.",
+  "herramientas": ["Skill1", "Skill2", "Skill3"],
+  "experiencias": [
+    {
+      "company": "Nombre de la empresa",
+      "role": "Tu rol",
+      "date": "Periodo",
+      "bullets": [
+        "Logro 1 usando **negritas** para destacar palabras clave",
+        "Logro 2",
+        "Logro 3",
+        "Logro 4"
+      ]
+    }
+  ]
+}`;
+
+    navigator.clipboard.writeText(promptEstructurado)
+      .then(() => alert("🚀 ¡Prompt optimizado para tu Gem copiado al portapapeles!"))
+      .catch(err => console.error("Error al copiar el prompt:", err));
+  };
 
   const importarDesdeJson = () => {
     setErrorJson('');
-    
     let datos;
     try {
       datos = JSON.parse(jsonImport);
@@ -170,7 +212,6 @@ export default function CVBuilder() {
                 company: exp.empresa || exp.company || '', 
                 date: exp.periodo || exp.date || '', 
                 description: textDescription
-                // Al NO incluir la propiedad 'bullets', desbloqueamos la edición del preview
               };
             })
           : prev.experience,
@@ -204,7 +245,6 @@ export default function CVBuilder() {
     setCv({ ...cv, [section]: updated });
   };
 
-  // --- IMPRIMIR ---
   const handlePrint = () => {
     const originalTitle = document.title;
     let suffix = "";
@@ -217,13 +257,10 @@ export default function CVBuilder() {
     document.title = originalTitle;
   };
 
-  // --- GUARDAR INTELIGENTE ---
   const handleSave = async () => {
     if (!targetJob) return;
-
     const cvTextDump = cvToString(cv);
     const isAlreadyApplied = ['Aplicado', 'Entrevista', 'Oferta'].includes(targetJob.status);
-    
     let newStatus = targetJob.status;
     let newDateApplied = targetJob.date_applied;
 
@@ -235,14 +272,7 @@ export default function CVBuilder() {
     }
 
     try {
-      const payload = {
-        ...targetJob,
-        status: newStatus,
-        cv_text: cvTextDump,
-        date_applied: newDateApplied,
-        last_updated: new Date().toISOString()
-      };
-      
+      const payload = { ...targetJob, status: newStatus, cv_text: cvTextDump, date_applied: newDateApplied, last_updated: new Date().toISOString() };
       await updateJob(payload);
       setTargetJob(payload);
       alert("✅ ¡CV guardado correctamente en tu base de datos!");
@@ -252,7 +282,6 @@ export default function CVBuilder() {
     }
   };
 
-  // --- PARSER INTELIGENTE (IMPORTAR HISTORIAL) ---
   const importCVFromHistory = (historyText) => {
     if (!historyText) return;
     if (!window.confirm("⚠️ Esto sobrescribirá el Perfil, Experiencia y Skills actuales con los datos seleccionados. ¿Continuar?")) return;
@@ -260,57 +289,34 @@ export default function CVBuilder() {
     try {
       const summaryMatch = historyText.match(/\*\*\* PERFIL \*\*\*\n([\s\S]*?)\n\n\*\*\*/);
       const newSummary = summaryMatch ? summaryMatch[1].trim() : cv.personal.summary;
-
       const skillsMatch = historyText.match(/\*\*\* SKILLS \*\*\*\n([\s\S]*)/);
       const newSkills = skillsMatch ? skillsMatch[1].split(',').map(s => s.trim()) : cv.skills;
-
       const expBlockMatch = historyText.match(/\*\*\* EXPERIENCIA \*\*\*\n([\s\S]*?)\n\*\*\* SKILLS/);
       let newExperience = [];
       
       if (expBlockMatch) {
         const expRaw = expBlockMatch[1];
         const expParts = expRaw.split('•').filter(p => p.trim().length > 0);
-        
         newExperience = expParts.map((part, index) => {
           const firstLineEnd = part.indexOf('\n');
           const header = part.substring(0, firstLineEnd).trim(); 
           const description = part.substring(firstLineEnd).trim();
-
           let company = "Empresa", role = "Rol", date = "Fecha";
           
           if (header.includes('|')) {
             const headerParts = header.split('|').map(s => s.trim());
             company = headerParts[0] || company;
             role = headerParts[1] || role;
-            if (headerParts[2]) {
-              date = headerParts[2];
-            } else if (role.includes('(')) {
-              const dateMatch = role.match(/\((.*?)\)/);
-              if (dateMatch) {
-                date = dateMatch[1];
-                role = role.replace(`(${date})`, '').trim();
-              }
-            }
+            if (headerParts[2]) date = headerParts[2];
           }
-
           return { id: Date.now() + index, company, role, date, description };
         });
       }
 
-      const finalExperience = newExperience.length > 0 ? newExperience : cv.experience;
-
-      setCv(prev => ({
-        ...prev,
-        personal: { ...prev.personal, summary: newSummary },
-        skills: newSkills,
-        experience: finalExperience
-      }));
-
+      setCv(prev => ({ ...prev, personal: { ...prev.personal, summary: newSummary }, skills: newSkills, experience: newExperience.length > 0 ? newExperience : cv.experience }));
       setShowHistory(false);
-      alert("✅ Contenido importado con éxito. Revisa los detalles.");
-
+      alert("✅ Contenido importado con éxito.");
     } catch (e) {
-      console.error(e);
       alert("❌ No se pudo importar este formato.");
     }
   };
@@ -335,37 +341,19 @@ export default function CVBuilder() {
               </div>
            </div>
 
-           {/* SELECTOR DE IDIOMA DEL CV */}
           <div className="flex-1 flex items-center gap-2 bg-slate-800 p-1.5 rounded border border-slate-700 mb-3">
             <Globe size={14} className="text-slate-400 ml-1" />
-            <select 
-              value={lang} 
-              onChange={(e) => setLang(e.target.value)}
-              className="bg-transparent text-xs font-bold text-white outline-none cursor-pointer w-full"
-            >
+            <select value={lang} onChange={(e) => setLang(e.target.value)} className="bg-transparent text-xs font-bold text-white outline-none cursor-pointer w-full">
               <option value="es" className="text-slate-900">🇪🇸 Español (ES)</option>
               <option value="en" className="text-slate-900">🇬🇧 Inglés (EN)</option>
             </select>
           </div>
 
-           {/* CONTROLES PRINCIPALES */}
            <div className="flex gap-2 mb-3">
-             <button 
-                onClick={() => setShowHistory(!showHistory)}
-                className={`flex-1 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1 border transition-colors ${showHistory ? 'bg-slate-700 border-slate-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'}`}
-             >
-               <History size={14}/> Historial CVs
-             </button>
-             
-             <button 
-                onClick={() => setMostrarImportJson(true)}
-                className="flex-1 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold flex items-center justify-center gap-1 transition-colors"
-             >
-               📋 Importar JSON
-             </button>
+             <button onClick={() => setShowHistory(!showHistory)} className={`flex-1 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1 border transition-colors ${showHistory ? 'bg-slate-700 border-slate-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'}`}><History size={14}/> Historial CVs</button>
+             <button onClick={() => setMostrarImportJson(true)} className="flex-1 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold flex items-center justify-center gap-1 transition-colors">📋 Importar JSON</button>
            </div>
 
-           {/* HISTORIAL DESPLEGABLE */}
            {showHistory && (
              <div className="bg-white text-slate-800 rounded shadow-xl border border-slate-200 mb-3 overflow-hidden animate-fadeIn">
                <div className="bg-slate-100 p-2 text-xs font-bold text-slate-500 uppercase border-b">Reutilizar contenido de:</div>
@@ -374,11 +362,7 @@ export default function CVBuilder() {
                    <div className="p-3 text-xs text-gray-400 text-center">No tienes CVs guardados todavía.</div>
                  ) : (
                    historyJobs.map(job => (
-                     <button 
-                       key={job.id} 
-                       onClick={() => importCVFromHistory(job.cv_text)}
-                       className="w-full text-left p-2 hover:bg-blue-50 border-b last:border-0 text-xs flex justify-between items-center group"
-                     >
+                     <button key={job.id} onClick={() => importCVFromHistory(job.cv_text)} className="w-full text-left p-2 hover:bg-blue-50 border-b last:border-0 text-xs flex justify-between items-center group">
                        <span className="font-bold truncate max-w-[180px]">{job.company}</span>
                        <span className="text-[10px] text-gray-400 group-hover:text-blue-600">{job.role}</span>
                      </button>
@@ -392,17 +376,22 @@ export default function CVBuilder() {
            <div className="bg-slate-800 rounded p-2 border border-slate-700">
               {targetJob ? (
                 <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2 text-green-400 text-xs font-bold uppercase tracking-wider">
-                    <Briefcase size={14}/> Editando para:
+                  <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider">
+                    <span className="flex items-center gap-2 text-green-400"><Briefcase size={14}/> Editando para:</span>
+                    
+                    {/* EL NUEVO BOTÓN EXCLUSIVO DE LA OPCIÓN A */}
+                    <button 
+                      onClick={copiarPromptParaGem}
+                      className="bg-purple-600 hover:bg-purple-700 text-white text-[10px] px-2 py-0.5 rounded flex items-center gap-1 transition-colors active:scale-95"
+                      title="Copiar prompt con requerimientos para tu Gem"
+                    >
+                      <Sparkles size={11}/> Generar Prompt IA
+                    </button>
                   </div>
-                  <div className="font-bold text-sm truncate">{targetJob.company}</div>
+                  <div className="font-bold text-sm truncate text-slate-100">{targetJob.company}</div>
                   <div className="flex gap-2 mt-1">
-                    <button onClick={handlePrint} className="flex-1 bg-white text-slate-900 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1 hover:bg-slate-100">
-                      <Download size={14}/> PDF
-                    </button>
-                    <button onClick={handleSave} className="flex-1 bg-green-600 text-white py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1 hover:bg-green-700 transition-colors">
-                      <Save size={14}/> Guardar CV
-                    </button>
+                    <button onClick={handlePrint} className="flex-1 bg-white text-slate-900 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1 hover:bg-slate-100"><Download size={14}/> PDF</button>
+                    <button onClick={handleSave} className="flex-1 bg-green-600 text-white py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1 hover:bg-green-700 transition-colors"><Save size={14}/> Guardar CV</button>
                   </div>
                 </div>
               ) : (
@@ -426,7 +415,6 @@ export default function CVBuilder() {
         <div className="p-6 space-y-8 pb-20">
           {activeTab === 'content' && (
             <>
-              {/* TEMA & FOTO */}
               <section className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Color Tema</label>
@@ -438,15 +426,12 @@ export default function CVBuilder() {
                 </div>
               </section>
 
-              {/* PERSONAL */}
               <section className="space-y-3 border-t pt-4">
                 <h3 className="text-xs font-bold text-gray-400 uppercase">👤 Personal & Perfil</h3>
                 <input name="name" placeholder="Nombre" value={cv.personal.name} onChange={handlePersonalChange} className="w-full border p-2 rounded text-sm font-bold" />
                 <input name="title" placeholder="Título" value={cv.personal.title} onChange={handlePersonalChange} className="w-full border p-2 rounded text-sm" />
-                
                 <label className="block text-[10px] text-gray-400 uppercase font-bold mt-2">Resumen Perfil (Barra Lateral)</label>
                 <textarea name="summary" placeholder="Perfil profesional..." value={cv.personal.summary} onChange={handlePersonalChange} className="w-full border p-2 rounded text-sm h-24" />
-
                 <div className="grid grid-cols-2 gap-2 text-xs mt-2">
                   <input name="email" placeholder="Email" value={cv.personal.email} onChange={handlePersonalChange} className="border p-2 rounded" />
                   <input name="phone" placeholder="Teléfono" value={cv.personal.phone} onChange={handlePersonalChange} className="border p-2 rounded" />
@@ -455,7 +440,6 @@ export default function CVBuilder() {
                 </div>
               </section>
 
-              {/* EXPERIENCIA */}
               <section className="space-y-4 border-t pt-4">
                 <div className="flex justify-between items-center">
                   <h3 className="text-xs font-bold text-gray-400 uppercase">💼 Experiencia</h3>
@@ -474,7 +458,6 @@ export default function CVBuilder() {
                 ))}
               </section>
 
-              {/* EDUCACIÓN */}
               <section className="space-y-4 border-t pt-4">
                 <div className="flex justify-between items-center">
                   <h3 className="text-xs font-bold text-gray-400 uppercase">🎓 Educación</h3>
@@ -490,7 +473,6 @@ export default function CVBuilder() {
                 ))}
               </section>
 
-              {/* IDIOMAS */}
               <section className="space-y-4 border-t pt-4">
                 <div className="flex justify-between items-center">
                   <h3 className="text-xs font-bold text-gray-400 uppercase">🌍 Idiomas</h3>
@@ -512,7 +494,6 @@ export default function CVBuilder() {
             </>
           )}
 
-          {/* TAB: DISEÑO */}
           {activeTab === 'design' && (
             <div className="space-y-6">
               <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
@@ -542,7 +523,7 @@ export default function CVBuilder() {
           <div className="print-hidden absolute left-0 w-full border-b-2 border-dashed border-red-400 z-50 flex items-end justify-end pointer-events-none opacity-50" style={{ top: '297mm', width: '210mm' }}><span className="bg-red-400 text-white text-[10px] px-2 py-0.5 rounded-t font-bold">FIN DE PÁGINA 1</span></div>
           <div className="cv-container bg-white shadow-2xl w-[210mm] min-h-[297mm] flex items-stretch overflow-hidden" style={{ background: `linear-gradient(90deg, ${cv.themeColor} 0%, ${cv.themeColor} 32%, #ffffff 32%, #ffffff 100%)` }}>
             
-            {/* COLUMNA IZQUIERDA (DINÁMICA TRADUCIBLE) */}
+            {/* COLUMNA IZQUIERDA */}
             <div className={`w-[32%] p-6 pt-10 flex flex-col shrink-0 text-white ${debugClass}`}>
               <div className={`w-28 h-28 rounded-full mx-auto mb-6 overflow-hidden flex items-center justify-center shrink-0 border-4 border-white/30 bg-white/20 ${debugClass}`}>
                  {cv.personal.photoUrl ? <img src={cv.personal.photoUrl} alt="Profile" className="w-full h-full object-cover" crossOrigin="anonymous" /> : <span className="text-4xl font-bold">{cv.personal.name.charAt(0)}</span>}
@@ -583,7 +564,7 @@ export default function CVBuilder() {
               </div>
             </div>
 
-            {/* COLUMNA DERECHA (100% TRADUCIBLE Y EDITABLE) */}
+            {/* COLUMNA DERECHA */}
             <div className={`w-[68%] p-8 pt-12 flex flex-col text-slate-800 ${debugClass}`}>
               <header className="mb-8 pb-4 shrink-0 border-b-2" style={{ borderColor: cv.themeColor }}>
                 <h1 className="font-extrabold uppercase tracking-tight leading-none mb-2 text-slate-900" style={{ fontSize: `${design.nameSize}px` }}>{cv.personal.name}</h1>
@@ -605,8 +586,6 @@ export default function CVBuilder() {
                         <span className="text-[10px] font-bold px-2 py-1 rounded bg-slate-100 text-slate-500 whitespace-nowrap">{exp.date}</span>
                       </div>
                       <p className="font-bold mb-2" style={{ color: cv.themeColor, fontSize: `${design.companySize}px` }}>{exp.company}</p>
-                      
-                      {/* SOLUCIÓN DE EDICIÓN: Renderizado directo mediante RichText mapeando el string 'description' */}
                       <div className="text-slate-600" style={{ fontSize: `${design.textSize}px`, lineHeight: design.lineHeight }}>
                         <RichText text={exp.description} />
                       </div>
@@ -629,17 +608,8 @@ export default function CVBuilder() {
               <p className="text-sm text-slate-500 mt-1">Pega el bloque JSON generado por tu IA.</p>
             </div>
             <div className="p-6 overflow-y-auto flex-1 flex flex-col gap-4">
-              <textarea
-                value={jsonImport}
-                onChange={e => setJsonImport(e.target.value)}
-                placeholder={`{\n  "titulo_profesional": "MarTech Specialist",\n  "summary": "...",\n  "herramientas": ["React", "Apps Script"],\n  "experiences": []\n}`}
-                className="w-full flex-1 min-h-[250px] p-3 font-mono text-xs bg-slate-50 text-slate-800 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none"
-              />
-              {errorJson && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-xs font-medium text-red-600">⚠️ {errorJson}</p>
-                </div>
-              )}
+              <textarea value={jsonImport} onChange={e => setJsonImport(e.target.value)} placeholder={`{\n  "titulo_profesional": "MarTech Specialist",\n  "summary": "...",\n  "herramientas": ["React", "Apps Script"],\n  "experiences": []\n}`} className="w-full flex-1 min-h-[250px] p-3 font-mono text-xs bg-slate-50 text-slate-800 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none" />
+              {errorJson && <div className="p-3 bg-red-50 border border-red-200 rounded-lg"><p className="text-xs font-medium text-red-600">⚠️ {errorJson}</p></div>}
             </div>
             <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
               <button onClick={() => { setMostrarImportJson(false); setJsonImport(''); setErrorJson(''); }} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200 rounded-lg">Cancelar</button>
