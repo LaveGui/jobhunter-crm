@@ -113,6 +113,9 @@ export default function CVBuilder() {
   const [debugMode, setDebugMode] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [lang, setLang] = useState('es');
+  
+  // Nuevo estado para controlar la carga de la API de Apps Script
+  const [loadingIA, setLoadingIA] = useState(false);
 
   // Estados de importación JSON
   const [mostrarImportJson, setMostrarImportJson] = useState(false);
@@ -127,50 +130,52 @@ export default function CVBuilder() {
 
   const t = (key) => TRANSLATIONS[lang][key] || key;
 
-  // --- FUNCIÓN ADICIONAL: GENERAR Y COPIAR PROMPT INTELIGENTE ---
-  const copiarPromptParaGem = () => {
+  // --- FUNCIÓN CONECTADA CON APPS SCRIPT (CON LLAMADA API) ---
+  const generarEstrategiaIA = async () => {
     if (!targetJob) return;
 
-    const promptEstructurado = `Actúa como un experto en copy y selección de personal en el sector MarTech. 
-Quiero adaptar mi currículum para la siguiente oportunidad laboral:
+    setLoadingIA(true);
+    
+    // !!! REEMPLAZA ESTO CON TU URL DE WEB APP DE APPS SCRIPT !!!
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyyHcebf3573jOl975cGG8B2KRHnnGVGOOp6RYbteEuGusU2U_MhL9qAuKV9shLvYMjYA/exec"; 
 
-- **Empresa:** ${targetJob.company || 'N/A'}
-- **Puesto:** ${targetJob.role || 'N/A'}
-- **Descripción de la Oferta:** 
-${targetJob.description || 'N/A'}
+    try {
+      const response = await fetch(WEB_APP_URL, {
+        method: "POST",
+        mode: "cors",
+        headers: {
+          "Content-Type": "text/plain;charset=utf-8"
+        },
+        body: JSON.stringify({
+          action: "generarPromptCV",
+          company: targetJob.company || "",
+          title: targetJob.role || targetJob.title || "",
+          description: targetJob.description || ""
+        })
+      });
 
----
+      const resultado = await response.json();
 
-**REQUISITOS ESTRICTOS DE SALIDA (OUTPUT):**
-Devuélveme un objeto JSON con el siguiente formato exacto, optimizando mis experiencias previas para que encajen con esta oferta.
+      if (resultado.error) {
+        throw new Error(resultado.message || "Error devuelto por Apps Script");
+      }
 
-1. El diseño final debe entrar estrictamente en **1 página A4**.
-2. Selecciona como máximo las **6 experiencias laborales más relevantes** para este puesto.
-3. Cada experiencia debe tener como máximo **4 bullets** (logros medibles e impactantes).
-4. El output debe ser exclusivamente el JSON limpio, sin texto introductorio ni bloques de código markdown, estructurado exactamente con estas llaves:
+      const promptParaCopiar = resultado.prompt_final;
 
-{
-  "titulo_profesional": "Tu título optimizado aquí",
-  "summary": "Resumen profesional de impacto con palabras clave de la oferta usando **negritas**.",
-  "herramientas": ["Skill1", "Skill2", "Skill3"],
-  "experiencias": [
-    {
-      "company": "Nombre de la empresa",
-      "role": "Tu rol",
-      "date": "Periodo",
-      "bullets": [
-        "Logro 1 usando **negritas** para destacar palabras clave",
-        "Logro 2",
-        "Logro 3",
-        "Logro 4"
-      ]
+      if (promptParaCopiar) {
+        await navigator.clipboard.writeText(promptParaCopiar);
+        alert("🚀 ¡Estrategia personalizada y Prompt Final copiados al portapapeles listos para tu Gem!");
+        console.log("Análisis estratégico completo recibido:", resultado);
+      } else {
+        alert("⚠️ La IA se ejecutó pero no devolvió el campo 'prompt_final'. Revisa los logs de Apps Script.");
+      }
+
+    } catch (error) {
+      console.error("Error al conectar con la IA de Apps Script:", error);
+      alert("❌ Error al generar el prompt con IA. Asegúrate de haber publicado la última versión del script como Web App pública.");
+    } finally {
+      setLoadingIA(false);
     }
-  ]
-}`;
-
-    navigator.clipboard.writeText(promptEstructurado)
-      .then(() => alert("🚀 ¡Prompt optimizado para tu Gem copiado al portapapeles!"))
-      .catch(err => console.error("Error al copiar el prompt:", err));
   };
 
   const importarDesdeJson = () => {
@@ -379,13 +384,15 @@ Devuélveme un objeto JSON con el siguiente formato exacto, optimizando mis expe
                   <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider">
                     <span className="flex items-center gap-2 text-green-400"><Briefcase size={14}/> Editando para:</span>
                     
-                    {/* EL NUEVO BOTÓN EXCLUSIVO DE LA OPCIÓN A */}
+                    {/* BOTÓN CONECTADO DIRECTO A TU APPS SCRIPT CON ESTADO DE LOADING */}
                     <button 
-                      onClick={copiarPromptParaGem}
-                      className="bg-purple-600 hover:bg-purple-700 text-white text-[10px] px-2 py-0.5 rounded flex items-center gap-1 transition-colors active:scale-95"
-                      title="Copiar prompt con requerimientos para tu Gem"
+                      onClick={generarEstrategiaIA}
+                      disabled={loadingIA}
+                      className={`${loadingIA ? 'bg-purple-800 opacity-70 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'} text-white text-[10px] px-2 py-0.5 rounded flex items-center gap-1 transition-colors active:scale-95`}
+                      title="Solicitar prompt optimizado a la API de tu Web App"
                     >
-                      <Sparkles size={11}/> Generar Prompt IA
+                      <Sparkles size={11} className={loadingIA ? "animate-spin" : ""}/>
+                      {loadingIA ? "Procesando..." : "Generar Prompt IA"}
                     </button>
                   </div>
                   <div className="font-bold text-sm truncate text-slate-100">{targetJob.company}</div>
@@ -478,11 +485,11 @@ Devuélveme un objeto JSON con el siguiente formato exacto, optimizando mis expe
                   <h3 className="text-xs font-bold text-gray-400 uppercase">🌍 Idiomas</h3>
                   <button onClick={() => addItem('languages', { language: '', level: '' })} className="text-blue-600 text-xs font-bold flex gap-1 items-center"><PlusCircle size={14}/> Añadir</button>
                 </div>
-                {cv.languages.map((lang) => (
-                  <div key={lang.id} className="bg-gray-50 p-2 rounded border relative group grid grid-cols-2 gap-2">
-                    <button onClick={() => removeItem('languages', lang.id)} className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-400 opacity-0 group-hover:opacity-100 shadow border"><Trash2 size={12}/></button>
-                    <input placeholder="Idioma" value={lang.language} onChange={(e) => updateItem('languages', lang.id, 'language', e.target.value)} className="bg-white border p-1 rounded text-xs font-bold" />
-                    <input placeholder="Nivel" value={lang.level} onChange={(e) => updateItem('languages', lang.id, 'level', e.target.value)} className="bg-white border p-1 rounded text-xs" />
+                {cv.languages.map((langItem) => (
+                  <div key={langItem.id} className="bg-gray-50 p-2 rounded border relative group grid grid-cols-2 gap-2">
+                    <button onClick={() => removeItem('languages', langItem.id)} className="absolute -top-2 -right-2 bg-white rounded-full p-1 text-red-400 opacity-0 group-hover:opacity-100 shadow border"><Trash2 size={12}/></button>
+                    <input placeholder="Idioma" value={langItem.language} onChange={(e) => updateItem('languages', langItem.id, 'language', e.target.value)} className="bg-white border p-1 rounded text-xs font-bold" />
+                    <input placeholder="Nivel" value={langItem.level} onChange={(e) => updateItem('languages', langItem.id, 'level', e.target.value)} className="bg-white border p-1 rounded text-xs" />
                   </div>
                 ))}
               </section>
