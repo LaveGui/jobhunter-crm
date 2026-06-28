@@ -16,12 +16,22 @@ export default function QuickAddModal({ isOpen, onClose, onSave }) {
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!formData.company || !formData.title) return alert("Empresa y Título son obligatorios");
-    
-    // Guardamos con estado inicial 'Prospecto'
-    onSave({ ...formData, status: 'Prospecto' });
+  e.preventDefault();
+  if (!formData.company || !formData.title) return alert("Empresa y Título son obligatorios");
+  
+  // Creamos un payload limpio normalizado para el Excel
+  const payload = {
+    ...formData,
+    role: formData.title,       // Duplicamos por seguridad
+    rol: formData.title,        // Para tu columna en español
+    empresa: formData.company,  // Para tu columna en español
+    descripcion: formData.description,
+    estado: 'Prospecto',        // Forzamos el estado en español
+    status: 'Prospecto'
   };
+  
+  onSave(payload);
+};
 
   if (!isOpen) return null;
 
