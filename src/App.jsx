@@ -362,8 +362,8 @@ export default function App() {
                                   </div>
 
                                   <div className={`flex-1 overflow-y-auto pr-1 custom-scrollbar pb-2 ${isCollapsed ? 'hidden' : 'space-y-2 md:space-y-3'}`}>
-                                  {columns[colId].map((job, index) => {
-                                      const jobTasks = pendingTasks.filter(t => t.jobId === job.id);
+                                      {(columns[colId] || []).map((job, index) => { // 🛡️ Blindado contra undefined temporales
+                                          const jobTasks = pendingTasks.filter(t => t.jobId === job.id);
                                       
                                       // === LÓGICA VISUAL DEL TERMÓMETRO ===
                                       const temp = jobTemperatureMap[job.id] || 0;
