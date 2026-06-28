@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyyHcebf3573jOl975cGG8B2KRHnnGVGOOp6RYbteEuGusU2U_MhL9qAuKV9shLvYMjYA/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzKzkPB0Rm_vqLFNRQocEAsfLcw7aIAZcRdceJmWRJmLLG0QA5qUx3vjFpi3PnlknJWvQ/exec"; 
 // ⚠️ IMPORTANTE: Asegúrate de pegar aquí la URL de tu Web App de Google Scripts que generamos al principio.
 
 export default function useGoogleSheets() {
