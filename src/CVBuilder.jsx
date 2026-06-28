@@ -137,7 +137,7 @@ export default function CVBuilder() {
     setLoadingIA(true);
     
     // !!! REEMPLAZA ESTO CON TU URL DE WEB APP DE APPS SCRIPT !!!
-    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyyHcebf3573jOl975cGG8B2KRHnnGVGOOp6RYbteEuGusU2U_MhL9qAuKV9shLvYMjYA/exec"; 
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzKzkPB0Rm_vqLFNRQocEAsfLcw7aIAZcRdceJmWRJmLLG0QA5qUx3vjFpi3PnlknJWvQ/exec"; 
 
     try {
       const response = await fetch(WEB_APP_URL, {
