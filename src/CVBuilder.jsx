@@ -428,44 +428,56 @@ export default function CVBuilder() {
              </div>
            )}
 
-           {/* TARGET JOB VINCULACIÓN */}
-           <div className="bg-slate-800 rounded p-2 border border-slate-700">
-              {targetJob ? (
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider">
-                    <span className="flex items-center gap-2 text-green-400"><Briefcase size={14}/> Editando para:</span>
-                    <button 
-                      onClick={generarEstrategiaIA}
-                      disabled={loadingIA}
-                      className={`${loadingIA ? 'bg-purple-800 opacity-70 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'} text-white text-[10px] px-2 py-0.5 rounded flex items-center gap-1 transition-colors active:scale-95`}
-                      title="Solicitar prompt optimizado a la API de tu Web App"
-                    >
-                      <Sparkles size={11} className={loadingIA ? "animate-spin" : ""}/>
-                      {loadingIA ? "Procesando..." : "Generar Prompt IA"}
-                    </button>
-                  </div>
-                  <div className="font-bold text-sm truncate text-slate-100">{targetJob.company}</div>
-                  <div className="flex gap-2 mt-1">
-                    <button onClick={handlePrint} className="flex-1 bg-white text-slate-900 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1 hover:bg-slate-100"><Download size={14}/> PDF</button>
-                    
-                    <button onClick={handleSave} className="flex-1 bg-green-600 text-white py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1 hover:bg-green-700 transition-colors"><Save size={14}/> Guardar CV</button>
-                    <button onClick={handleGuardarYAnalizar} disabled={loadingQA} className={`flex-1 ${loadingQA ? 'bg-purple-800' : 'bg-purple-600 hover:bg-purple-700'} text-white py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1 transition-colors`}>
-                    <Sparkles size={14} className={loadingQA ? "animate-spin" : ""}/>
-                    {loadingQA ? "Analizando..." : "Guardar & QA"}
-                      </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-2">
-                   <select className="w-full bg-slate-900 border border-slate-600 rounded text-xs p-1.5 text-white" onChange={(e) => { const j = jobs.find(x => x.id === e.target.value); if(j) setTargetJob(j); }} defaultValue="">
-                     <option value="" disabled>-- Vincular Oportunidad --</option>
-                     {pendingJobs.map(j => <option key={j.id} value={j.id}>{j.company}</option>)}
-                   </select>
-                   <button onClick={handlePrint} className="w-full bg-blue-600 hover:bg-blue-700 py-1.5 rounded text-xs font-bold mt-1 flex items-center justify-center gap-2"><Printer size={14}/> PDF Genérico</button>
-                </div>
-              )}
-           </div>
-        </div>
+          {/* TARGET JOB VINCULACIÓN */}
+<div className="bg-slate-800 rounded p-2 border border-slate-700">
+  {targetJob ? (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider">
+        <span className="flex items-center gap-2 text-green-400"><Briefcase size={14}/> Editando para:</span>
+        <button 
+          onClick={generarEstrategiaIA}
+          disabled={loadingIA}
+          className={`${loadingIA ? 'bg-purple-800 opacity-70 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'} text-white text-[10px] px-2 py-0.5 rounded flex items-center gap-1 transition-colors active:scale-95`}
+          title="Solicitar prompt optimizado a la API de tu Web App"
+        >
+          <Sparkles size={11} className={loadingIA ? "animate-spin" : ""}/>
+          {loadingIA ? "Procesando..." : "Generar Prompt IA"}
+        </button>
+      </div>
+      
+      <div className="font-bold text-sm truncate text-slate-100">{targetJob.company}</div>
+      
+      {/* FILA 1: PDF y Guardar CV Clásico */}
+      <div className="flex gap-2 mt-1">
+        <button onClick={handlePrint} className="flex-1 bg-white text-slate-900 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1 hover:bg-slate-100">
+          <Download size={14}/> PDF
+        </button>
+        <button onClick={handleSave} className="flex-1 bg-green-600 text-white py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1 hover:bg-green-700 transition-colors">
+          <Save size={14}/> Guardar CV
+        </button>
+      </div>
+
+      {/* FILA 2: Tu nuevo súper botón de Guardar & QA ocupando todo el ancho disponible para que luzca bien */}
+      <button 
+        onClick={handleGuardarYAnalizar} 
+        disabled={loadingQA} 
+        className={`w-full ${loadingQA ? 'bg-purple-800' : 'bg-purple-600 hover:bg-purple-700'} text-white py-2 rounded text-xs font-bold flex items-center justify-center gap-1 transition-colors`}
+      >
+        <Sparkles size={14} className={loadingQA ? "animate-spin" : ""}/>
+        {loadingQA ? "Guardando y Analizando..." : "Guardar & Analizar Calidad (Groq)"}
+      </button>
+
+    </div>
+  ) : (
+    <div className="flex flex-col gap-2">
+       <select className="w-full bg-slate-900 border border-slate-600 rounded text-xs p-1.5 text-white" onChange={(e) => { const j = jobs.find(x => x.id === e.target.value); if(j) setTargetJob(j); }} defaultValue="">
+         <option value="" disabled>-- Vincular Oportunidad --</option>
+         {pendingJobs.map(j => <option key={j.id} value={j.id}>{j.company}</option>)}
+       </select>
+       <button onClick={handlePrint} className="w-full bg-blue-600 hover:bg-blue-700 py-1.5 rounded text-xs font-bold mt-1 flex items-center justify-center gap-2"><Printer size={14}/> PDF Genérico</button>
+    </div>
+  )}
+</div>
 
         {/* TABS */}
         <div className="flex border-b sticky top-[180px] bg-white z-20"> 
