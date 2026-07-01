@@ -11,7 +11,7 @@ const RichText = ({ text, className, style }) => {
     <div className={`whitespace-pre-wrap ${className}`} style={style}>
       {lines.map((line, index) => {
         const isList = line.trim().startsWith('- ') || line.trim().startsWith('• ');
-        const cleanLine = isList ? line.trim().substring(2) : line;
+        const cleanLine = isList ? line.trim().replace(/^[-•]\s*/, '') : line;
         const parts = cleanLine.split(/(\*\*.*?\*\*)/g);
         const content = parts.map((part, i) => {
           if (part.startsWith('**') && part.endsWith('**')) {
@@ -21,8 +21,8 @@ const RichText = ({ text, className, style }) => {
         });
         if (isList) {
           return (
-            <div key={index} className="flex items-start gap-2 ml-1 relative">
-              <span className="mt-[0.4em] w-1 h-1 rounded-full bg-current shrink-0 opacity-70"></span>
+            <div key={index} className="flex items-start gap-2 ml-1 relative my-0.5">
+              <span className="mt-[0.45em] w-1 h-1 rounded-full bg-current shrink-0 opacity-70"></span>
               <span className="flex-1">{content}</span>
             </div>
           );
@@ -113,8 +113,6 @@ export default function CVBuilder() {
   const [debugMode, setDebugMode] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [lang, setLang] = useState('es');
-  
-  // Nuevo estado para controlar la carga de la API de Apps Script
   const [loadingIA, setLoadingIA] = useState(false);
 
   // Estados de importación JSON
@@ -130,13 +128,11 @@ export default function CVBuilder() {
 
   const t = (key) => TRANSLATIONS[lang][key] || key;
 
-  // --- FUNCIÓN CONECTADA CON APPS SCRIPT (CON LLAMADA API) ---
+  // --- FUNCIÓN CONECTADA CON APPS SCRIPT ---
   const generarEstrategiaIA = async () => {
     if (!targetJob) return;
-
     setLoadingIA(true);
     
-    // !!! REEMPLAZA ESTO CON TU URL DE WEB APP DE APPS SCRIPT !!!
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzKzkPB0Rm_vqLFNRQocEAsfLcw7aIAZcRdceJmWRJmLLG0QA5qUx3vjFpi3PnlknJWvQ/exec"; 
 
     try {
@@ -156,7 +152,7 @@ export default function CVBuilder() {
 
       const resultado = await response.json();
 
-      if (resultado.error) {
+      if (resultado.error || resultado.result === "error") {
         throw new Error(resultado.message || "Error devuelto por Apps Script");
       }
 
@@ -165,7 +161,6 @@ export default function CVBuilder() {
       if (promptParaCopiar) {
         await navigator.clipboard.writeText(promptParaCopiar);
         alert("🚀 ¡Estrategia personalizada y Prompt Final copiados al portapapeles listos para tu Gem!");
-        console.log("Análisis estratégico completo recibido:", resultado);
       } else {
         alert("⚠️ La IA se ejecutó pero no devolvió el campo 'prompt_final'. Revisa los logs de Apps Script.");
       }
@@ -184,21 +179,25 @@ export default function CVBuilder() {
     try {
       datos = JSON.parse(jsonImport);
     } catch(e) {
-      setErrorJson('JSON inválido. Revisa que esté bien formatted (comillas dobles, comas, etc.).');
+      setErrorJson('JSON inválido. Revisa que esté bien formateado (comillas dobles, comas, etc.).');
       return;
     }
 
     try {
       const listaExperiencias = datos.experiencias || datos.experiences;
+      const listaHerramientas = datos.herramientas || datos.skills || datos.skills_list;
+      const resumenPerfil = datos.summary || datos.resumen || datos.perfil;
+      const tituloPro = datos.titulo_profesional || datos.title || datos.professional_title;
+      const listaEducacion = datos.educacion || datos.education;
 
       setCv(prev => ({
         ...prev,
         personal: {
           ...prev.personal,
-          title: datos.titulo_profesional || prev.personal.title,
-          summary: datos.summary || prev.personal.summary
+          title: tituloPro || prev.personal.title,
+          summary: resumenPerfil || prev.personal.summary
         },
-        skills: datos.herramientas || prev.skills,
+        skills: Array.isArray(listaHerramientas) ? listaHerramientas : prev.skills,
         
         experience: listaExperiencias 
           ? listaExperiencias.map((exp, index) => {
@@ -221,12 +220,12 @@ export default function CVBuilder() {
             })
           : prev.experience,
 
-        education: datos.educacion
-          ? datos.educacion.map((edu, index) => ({
+        education: listaEducacion
+          ? listaEducacion.map((edu, index) => ({
               id: Date.now() + index + 50,
-              degree: edu.titulo || '',
-              school: edu.institucion || '',
-              date: edu.periodo || ''
+              degree: edu.titulo || edu.degree || '',
+              school: edu.institucion || edu.school || '',
+              date: edu.periodo || edu.date || ''
             }))
           : prev.education
       }));
@@ -235,7 +234,7 @@ export default function CVBuilder() {
       setJsonImport('');
 
     } catch(e) {
-      setErrorJson('Error al mapear los campos. Asegúrate de que las llaves coincidan.');
+      setErrorJson('Error al mapear los campos del JSON. Revisa las llaves de mapeo.');
       console.error(e);
     }
   };
@@ -332,7 +331,7 @@ export default function CVBuilder() {
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row font-sans">
-      <style>{`.debug-box { outline: 1px solid #ff0000 !important; } @media print { @page { margin: 0; size: A4; } body { -webkit-print-color-adjust: exact; background: white; } aside, .print-hidden { display: none !important; } main { margin: 0 !important; padding: 0 !important; width: 100% !important; } .cv-container { width: 210mm !important; min-height: 297mm !important; height: auto !important; margin: 0 !important; box-shadow: none !important; } }`}</style>
+      <style>{`.debug-box { outline: 1px solid #ff0000 !important; } @media print { @page { margin: 0; size: A4; } body { -webkit-print-color-adjust: exact; background: white; } aside, .print-hidden { display: none !important; } main { margin: 0 !important; padding: 0 !important; width: 100% !important; } .cv-container { width: 210mm !important; min-height: 297mm !important; height: auto !important; margin: 0 !important; box-shadow: none !important; break-inside: avoid; } .experience-item { break-inside: avoid; } }`}</style>
 
       {/* EDITOR */}
       <aside className="w-full md:w-[450px] bg-white h-screen overflow-y-auto border-r border-gray-200 shadow-xl z-10 print:hidden flex flex-col">
@@ -383,8 +382,6 @@ export default function CVBuilder() {
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider">
                     <span className="flex items-center gap-2 text-green-400"><Briefcase size={14}/> Editando para:</span>
-                    
-                    {/* BOTÓN CONECTADO DIRECTO A TU APPS SCRIPT CON ESTADO DE LOADING */}
                     <button 
                       onClick={generarEstrategiaIA}
                       disabled={loadingIA}
@@ -586,7 +583,7 @@ export default function CVBuilder() {
                 </h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: `${design.sectionGap}px` }}>
                   {cv.experience.map((exp) => (
-                    <div key={exp.id} className={`relative pl-4 border-l-2 ${debugClass}`} style={{ borderColor: cv.themeColor + '40' }}>
+                    <div key={exp.id} className={`experience-item relative pl-4 border-l-2 ${debugClass}`} style={{ borderColor: cv.themeColor + '40' }}>
                       <div className="absolute top-[5px] w-2 h-2 rounded-full -left-[5px]" style={{ backgroundColor: cv.themeColor }}></div>
                       <div className="flex justify-between items-center mb-1">
                         <h4 className="font-bold text-slate-900" style={{ fontSize: `${design.roleSize}px` }}>{exp.role}</h4>
