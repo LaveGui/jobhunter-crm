@@ -107,6 +107,9 @@ export default function CVBuilder() {
   const [design, setDesign] = useState({
     nameSize: 32, roleSize: 14, companySize: 12, textSize: 10, lineHeight: 1.4, sectionGap: 20,
   });
+  const [loadingQA, setLoadingQA] = useState(false);
+  const [qaResult, setQaResult] = useState(null); // Guardará el objeto de feedback de Groq
+  const [showQaModal, setShowQaModal] = useState(false); // Para abrir/cerrar la ventana de resultados
 
   const [targetJob, setTargetJob] = useState(null);
   const [activeTab, setActiveTab] = useState('content'); 
@@ -172,6 +175,55 @@ export default function CVBuilder() {
       setLoadingIA(false);
     }
   };
+
+  const handleGuardarYAnalizar = async () => {
+  if (!targetJob) {
+    alert("⚠️ Primero debes vincular una oportunidad de trabajo.");
+    return;
+  }
+
+  setLoadingQA(true);
+  setQaResult(null); // Limpiamos análisis anteriores
+
+  const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzKzkPB0Rm_vqLFNRQocEAsfLcw7aIAZcRdceJmWRJmLLG0QA5qUx3vjFpi3PnlknJWvQ/exec"; 
+
+  try {
+    const response = await fetch(WEB_APP_URL, {
+      method: "POST",
+      mode: "cors",
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8"
+      },
+      body: JSON.stringify({
+        action: "guardarYAnalizarCV",
+        id: targetJob.id,
+        cv_text: cvToString(cv), // Tu función existente que pasa el CV a texto
+        company: targetJob.company || "",
+        title: targetJob.role || targetJob.title || "",
+        description: targetJob.description || ""
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.result === 'success') {
+      // Guardamos la respuesta del QA que viene desde Apps Script
+      setQaResult(data.qa); 
+      setShowQaModal(true); // Abrimos el panel/modal con los resultados
+      
+      // Opcional: Actualizamos el estado local del targetJob para reflejar cambios si hiciera falta
+      alert("✅ ¡CV guardado en Sheets con éxito y analizado por Groq!");
+    } else {
+      throw new Error(data.message || "Error desconocido en el servidor");
+    }
+
+  } catch (error) {
+    console.error("Error al guardar y analizar el CV:", error);
+    alert("❌ Error al procesar la solicitud: " + error.message);
+  } finally {
+    setLoadingQA(false);
+  }
+};
 
   const importarDesdeJson = () => {
     setErrorJson('');
@@ -395,7 +447,12 @@ export default function CVBuilder() {
                   <div className="font-bold text-sm truncate text-slate-100">{targetJob.company}</div>
                   <div className="flex gap-2 mt-1">
                     <button onClick={handlePrint} className="flex-1 bg-white text-slate-900 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1 hover:bg-slate-100"><Download size={14}/> PDF</button>
+                    
                     <button onClick={handleSave} className="flex-1 bg-green-600 text-white py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1 hover:bg-green-700 transition-colors"><Save size={14}/> Guardar CV</button>
+                    <button onClick={handleGuardarYAnalizar} disabled={loadingQA} className={`flex-1 ${loadingQA ? 'bg-purple-800' : 'bg-purple-600 hover:bg-purple-700'} text-white py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1 transition-colors`}>
+                    <Sparkles size={14} className={loadingQA ? "animate-spin" : ""}/>
+                    {loadingQA ? "Analizando..." : "Guardar & QA"}
+                      </button>
                   </div>
                 </div>
               ) : (
@@ -602,6 +659,76 @@ export default function CVBuilder() {
           </div>
         </div>
       </main>
+
+      {/* MODAL DE RESULTADOS DE CALIDAD (GROQ QA) */}
+{showQaModal && qaResult && (
+  <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
+    <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col border border-purple-200">
+      
+      {/* Cabecera */}
+      <div className="p-6 border-b border-purple-100 bg-purple-50 flex justify-between items-center">
+        <div>
+          <h3 className="text-xl font-bold text-purple-950 flex items-center gap-2">
+            <Sparkles size={20} className="text-purple-600"/> Análisis de Calidad del CV
+          </h3>
+          <p className="text-xs text-purple-700 mt-0.5">Informe estratégico generado por Groq en base a la oferta.</p>
+        </div>
+        <button 
+          onClick={() => setShowQaModal(false)}
+          className="text-purple-400 hover:text-purple-700 text-sm font-bold bg-white border border-purple-200 rounded-full w-8 h-8 flex items-center justify-center shadow-sm"
+        >
+          ✕
+        </button>
+      </div>
+
+      {/* Contenido del Reporte */}
+      <div className="p-6 overflow-y-auto flex-1 space-y-6 text-slate-800">
+        
+        {/* Si tu backend maneja un score o puntuación, lo renderizamos aquí de forma vistosa */}
+        {qaResult.score !== undefined && (
+          <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-xl border">
+            <div className="w-16 h-16 rounded-full bg-purple-600 text-white flex items-center justify-center font-extrabold text-xl shadow">
+              {qaResult.score}/100
+            </div>
+            <div>
+              <h4 className="font-bold text-sm text-slate-900">Puntuación de ajuste ATS</h4>
+              <p className="text-xs text-slate-500">Mapeo semántico de palabras clave y densidad de competencias.</p>
+            </div>
+          </div>
+        )}
+
+        {/* Resumen de Acción / Feedback Principal */}
+        <div className="space-y-2">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Diagnóstico General</h4>
+          <div className="p-4 bg-slate-50 border rounded-lg text-sm leading-relaxed">
+            {/* Si es un string directo o un objeto con campo resumen_accion */}
+            <RichText text={qaResult.resumen_accion || qaResult.feedback || (typeof qaResult === 'string' ? qaResult : 'Análisis completado con éxito.')} />
+          </div>
+        </div>
+
+        {/* Bloque dinámico por si devuelves arrays de puntos fuertes/débiles */}
+        {qaResult.puntos_criticos && (
+          <div className="space-y-2">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-red-400">Puntos Críticos a Corregir</h4>
+            <div className="p-4 bg-red-50 text-red-950 border border-red-100 rounded-lg text-xs">
+              <RichText text={qaResult.puntos_criticos} />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+        <button 
+          onClick={() => setShowQaModal(false)} 
+          className="px-5 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg shadow transition-colors"
+        >
+          Entendido, voy a optimizarlo
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
       {/* MODAL JSON */}
       {mostrarImportJson && (
