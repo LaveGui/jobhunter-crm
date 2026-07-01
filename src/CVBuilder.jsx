@@ -427,9 +427,10 @@ export default function CVBuilder() {
                </div>
              </div>
            )}
+          </div>
 
           {/* TARGET JOB VINCULACIÓN */}
-<div className="bg-slate-800 rounded p-2 border border-slate-700">
+          <div className="bg-slate-800 rounded p-2 border border-slate-700">
   {targetJob ? (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider">
