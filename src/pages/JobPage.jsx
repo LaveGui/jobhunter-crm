@@ -11,7 +11,7 @@ import {
 export default function JobPage({ jobs, onSave, pendingTasks = [] }) {
   const { id } = useParams();
   const navigate = useNavigate();
-  const job = jobs.find(j => String(j.id) === String(id));
+  const job = jobs?.find(j => String(j.id) === String(id));
 
   const [formData, setFormData] = useState(null);
   const [hasChanges, setHasChanges] = useState(false);
