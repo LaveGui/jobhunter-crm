@@ -5,12 +5,15 @@ import confetti from 'canvas-confetti';
 import { 
   Plus, Search, Building2, MapPin, Euro, Heart, 
   CalendarCheck, Clock, UserX, Activity, ArrowDownWideNarrow, 
-  Zap, Settings, BarChart3, Flame, Trophy, Snowflake, Thermometer // <--- Añadidos Snowflake y Thermometer
+  Zap, Settings, BarChart3, Flame, Trophy, Snowflake, Thermometer,
+  Link as LinkIcon // <--- Añadido icono para el botón rápido de LinkedIn
 } from 'lucide-react'; 
 import useGoogleSheets from './hooks/useGoogleSheets';
 import QuickAddModal from './components/QuickAddModal';
 import StrategyModal from './components/StrategyModal';
 import StatsModal from './components/StatsModal';
+import { AddJobModal } from './components/AddJobModal';
+import { Toast } from './components/Toast';
 import JobPage from './pages/JobPage';
 import CVBuilder from './CVBuilder'; 
 import { calculatePendingTasks } from './utils/taskEngine';
@@ -32,7 +35,6 @@ const getBusinessDays = (startDate, endDate) => {
   let curDate = new Date(startDate.getTime());
   while (curDate < endDate) {
     curDate.setDate(curDate.getDate() + 1);
-    // 0 es Domingo, 6 es Sábado
     if (curDate.getDay() !== 0 && curDate.getDay() !== 6) {
       count++;
     }
@@ -52,10 +54,17 @@ export default function App() {
   const [showStats, setShowStats] = useState(false);
   const [showTaskPanel, setShowTaskPanel] = useState(false);
   const [showDiscarded, setShowDiscarded] = useState(false); 
+
+  // --- ESTADOS PARA EL MODAL DE LINKEDIN Y TOAST ---
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [toast, setToast] = useState(null);
+  
+  // Tu endpoint desplegado en Render para el scraper
+  const RENDER_API_URL = "https://jobhunter-scraper-i5sb.onrender.com";
   
   const [activePlaybook, setActivePlaybook] = useState(DEFAULT_PLAYBOOK);
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortBy, setSortBy] = useState('temperature'); // Por defecto ahora ordena por temperatura
+  const [sortBy, setSortBy] = useState('temperature');
 
   useEffect(() => { const saved = localStorage.getItem('jobhunter_playbook'); if (saved) setActivePlaybook(JSON.parse(saved)); }, []);
   
@@ -77,20 +86,17 @@ export default function App() {
       let lastActionDate = job.date_applied ? new Date(job.date_applied) : new Date(job.last_updated || Date.now());
       lastActionDate.setHours(0,0,0,0);
 
-      // Status Básico
       if (job.status === 'Entrevista') { jobXP += 100; hasInterview = true; }
       if (job.status === 'Oferta') { jobXP += 300; hasInterview = true; }
       
       let logs = [];
       try { logs = typeof job.activity_log === 'string' ? JSON.parse(job.activity_log) : job.activity_log; } catch(e){}
       
-      // 🛠️ FIX 1: Prevenir el doble conteo al postular
       const hasApplyLog = logs.some(l => l.type === 'apply');
       if (job.date_applied && !hasApplyLog) actionScore += 15; 
 
       if (logs && logs.length > 0) {
         logs.forEach(log => {
-          // XP (Gamificación)
           if (log.type === 'note') jobXP += 5;
           if (log.type === 'apply') jobXP += 10;
           if (log.type === 'visit') jobXP += 15;
@@ -98,7 +104,6 @@ export default function App() {
           if (log.type === 'message' || log.type === 'email' || log.type === 'call') jobXP += 30;
           if (log.type === 'interview') { jobXP += 100; hasInterview = true; }
 
-          // TEMPERATURA (Calentamiento)
           if (log.type === 'note') actionScore += 5;
           if (log.type === 'apply') actionScore += 15;
           if (log.type === 'visit') actionScore += 10;
@@ -107,7 +112,6 @@ export default function App() {
           if (log.type === 'viewed_me') actionScore += 25;
           if (log.type === 'called_me') actionScore += 40;
 
-          // Fechas
           if (log.date) {
             const d = parseEsDate(log.date);
             activeDates.add(new Date(d).setHours(0,0,0,0));
@@ -122,17 +126,14 @@ export default function App() {
       xpMap[job.id] = jobXP; 
       totalXP += jobXP; 
 
-      // --- CÁLCULO FINAL DE TEMPERATURA ---
       let jobTemp = 0;
       if (hasInterview || job.status === 'Oferta') {
-        jobTemp = 100; // 🛑 El 100° es sagrado para Entrevistas y Ofertas
+        jobTemp = 100; 
       } else if (job.status === 'Descartado') {
         jobTemp = 0; 
       } else {
         const daysSinceLastAction = getBusinessDays(lastActionDate, today);
         const coldPenalty = daysSinceLastAction * 10; 
-        
-        // 🛑 FIX 2: Techo de cristal en 90° para lo que no sea entrevista
         jobTemp = Math.max(0, Math.min(90, actionScore - coldPenalty));
       }
       tempMap[job.id] = jobTemp;
@@ -191,11 +192,10 @@ export default function App() {
         return matchCompany || matchTitle || matchContact;
       });
 
-      // ORDENAMIENTO (Ahora usa la Temperatura)
       const sortJobs = (list) => {
         return [...list].sort((a, b) => {
           if (sortBy === 'alpha') return (a.company || '').localeCompare(b.company || '');
-          if (sortBy === 'temperature') return (jobTemperatureMap[b.id] || 0) - (jobTemperatureMap[a.id] || 0); // 🔥 HOTTEST FIRST
+          if (sortBy === 'temperature') return (jobTemperatureMap[b.id] || 0) - (jobTemperatureMap[a.id] || 0);
           if (sortBy === 'last_updated') { return new Date(b.last_updated || 0) - new Date(a.last_updated || 0); }
           return 0;
         });
@@ -205,7 +205,7 @@ export default function App() {
       Object.keys(newCols).forEach(col => { newCols[col] = sortJobs(newCols[col]); });
       setColumns(newCols);
     }
-  }, [jobs, activePlaybook, searchTerm, sortBy, jobTemperatureMap]); // <-- Dependencia de tempMap añadida
+  }, [jobs, activePlaybook, searchTerm, sortBy, jobTemperatureMap]);
 
   const formatDateShort = (d) => { if (!d) return null; try { return new Date(d).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }); } catch { return d; } };
   const formatSalary = (s) => { if (!s) return ''; return String(s).replace(/[^\d-]/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, "."); };
@@ -289,7 +289,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Acciones */}
+                {/* Acciones del Header */}
                 <div className="flex flex-wrap justify-center items-center gap-2 md:gap-3 w-full md:w-auto">
                   <button onClick={() => setShowStats(true)} className="p-2 rounded-lg bg-slate-800 text-blue-400 hover:bg-slate-700 hover:text-white border border-slate-700 hidden sm:block"><BarChart3 size={18} /></button>
                   <button onClick={() => setShowTaskPanel(!showTaskPanel)} className={`relative px-3 py-2 rounded-lg font-bold text-xs md:text-sm flex items-center gap-1.5 transition-all ${showTaskPanel ? 'bg-yellow-400 text-slate-900' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}>
@@ -297,6 +297,16 @@ export default function App() {
                     {pendingTasks.length > 0 && (<span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full border-2 border-slate-900 animate-bounce">{pendingTasks.length}</span>)}
                   </button>
                   <button onClick={handleOpenCV} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg font-bold text-xs md:text-sm shadow-lg">CV Studio</button>
+                  
+                  {/* NUEVO BOTÓN: IMPORTACIÓN RÁPIDA LINKEDIN */}
+                  <button 
+                    onClick={() => setIsModalOpen(true)} 
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg font-bold text-xs md:text-sm flex items-center gap-1.5 shadow-lg transition-colors"
+                  >
+                    <LinkIcon size={15} /> 
+                    <span className="hidden sm:inline">⚡ Importar LinkedIn</span>
+                  </button>
+
                   <button onClick={() => setIsQuickAddOpen(true)} className="bg-white text-slate-900 hover:bg-slate-100 px-3 py-2 rounded-lg font-bold text-xs md:text-sm flex items-center gap-1 transition-colors"><Plus size={16} /> <span className="hidden sm:inline">Nueva Oportunidad</span></button>
                 </div>
               </div>
@@ -325,7 +335,6 @@ export default function App() {
                   <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0 hide-scrollbar">
                      <span className="text-[10px] md:text-xs font-bold text-slate-400 uppercase whitespace-nowrap">Ordenar:</span>
                      
-                     {/* BOTÓN TERMODINÁMICO */}
                      <button onClick={() => setSortBy('temperature')} className={`px-2 md:px-3 py-1.5 rounded-full text-[10px] md:text-xs font-bold flex items-center gap-1 whitespace-nowrap transition-colors ${sortBy === 'temperature' ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'text-slate-500 hover:bg-slate-100 border border-transparent'}`}>
                         <Thermometer size={14} className={sortBy === 'temperature' ? 'text-orange-500' : 'text-slate-400'}/> Temperatura
                      </button>
@@ -336,7 +345,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* KANBAN: SCROLL HORIZONTAL FLUIDO EN MÓVILES */}
+            {/* KANBAN */}
             <main className="flex-1 overflow-x-auto overflow-y-hidden p-3 md:p-4 bg-slate-100/50">
               {loading && <div className="flex justify-center items-center h-full text-slate-400 animate-pulse text-sm">Cargando pipeline...</div>}
               {error && <p className="text-center text-red-500 text-sm">Error: {error}</p>}
@@ -362,14 +371,13 @@ export default function App() {
                                   </div>
 
                                   <div className={`flex-1 overflow-y-auto pr-1 custom-scrollbar pb-2 ${isCollapsed ? 'hidden' : 'space-y-2 md:space-y-3'}`}>
-                                      {(columns[colId] || []).map((job, index) => { // 🛡️ Blindado contra undefined temporales
+                                      {(columns[colId] || []).map((job, index) => {
                                           const jobTasks = pendingTasks.filter(t => t.jobId === job.id);
                                       
-                                      // === LÓGICA VISUAL DEL TERMÓMETRO ===
                                       const temp = jobTemperatureMap[job.id] || 0;
                                       let TempIcon = Thermometer;
                                       let tempClass = "text-slate-500 bg-slate-50 border-slate-200";
-                                      let tempGlow = ""; // Para el borde superior de la tarjeta
+                                      let tempGlow = "";
 
                                       if (temp <= 20) { 
                                           TempIcon = Snowflake; 
@@ -393,7 +401,6 @@ export default function App() {
                                       <Draggable key={job.id} draggableId={String(job.id)} index={index}>
                                       {(provided, snapshot) => (
                                           <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} style={{ ...provided.draggableProps.style }} onClick={() => handleOpenJob(job.id)} className={`bg-white p-3 md:p-4 rounded-lg border transition-all cursor-pointer group relative hover:shadow-md ${snapshot.isDragging ? 'shadow-2xl ring-2 ring-blue-500 z-50' : 'shadow-sm border-slate-200'} ${temp >= 80 ? 'border-t-4 border-t-red-500' : temp > 50 ? 'border-t-2 border-t-orange-400' : 'hover:border-blue-400'}`}>
-                                          {/* HALO TÉRMICO SUPERIOR */}
                                           {temp > 20 && (<div className={`absolute top-0 right-0 w-full h-1 bg-gradient-to-r from-transparent ${tempGlow} to-transparent opacity-50 rounded-t-lg`}></div>)}
                                           
                                           <h3 className="font-bold text-slate-800 mb-0.5 leading-snug text-xs md:text-sm line-clamp-2">{job.title}</h3>
@@ -410,8 +417,6 @@ export default function App() {
                                               
                                               <div className="flex flex-col gap-1 md:gap-1.5 pt-1.5 md:pt-2 border-t border-slate-50">
                                                   <div className="flex justify-between items-center">
-                                                    
-                                                    {/* NUEVO INDICADOR TÉRMICO EN LA TARJETA */}
                                                     <div className="flex items-center gap-2">
                                                         <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-bold ${tempClass}`} title={`Temperatura de la oportunidad: ${temp}°`}>
                                                            <TempIcon size={12} className={temp >= 80 ? 'fill-red-600' : temp > 50 ? 'fill-orange-500' : ''}/> 
@@ -450,13 +455,45 @@ export default function App() {
           </div>
         } />
 
-        <Route path="/job/:id" element={<JobPage jobs={jobs} onSave={handleSaveJob} pendingTasks={pendingTasks} />} />
+        <Route path="/job/:id" element={<JobPage />} />
         <Route path="/cv" element={<CVBuilder />} />
       </Routes>
 
-      {showStrategyModal && <StrategyModal isOpen={showStrategyModal} onClose={() => setShowStrategyModal(false)} onSave={handleStrategySave}/>}
-      {showStats && <StatsModal jobs={jobs} isOpen={showStats} onClose={() => setShowStats(false)}/>}
-      {isQuickAddOpen && <QuickAddModal isOpen={isQuickAddOpen} onClose={() => setIsQuickAddOpen(false)} onSave={handleSaveJob}/>}
+      {/* MODALES DEL SISTEMA */}
+      {isQuickAddOpen && (
+        <QuickAddModal 
+          isOpen={isQuickAddOpen} 
+          onClose={() => setIsQuickAddOpen(false)} 
+          onSave={handleSaveJob} 
+        />
+      )}
+
+      {showStrategyModal && (
+        <StrategyModal 
+          isOpen={showStrategyModal} 
+          onClose={() => setShowStrategyModal(false)} 
+          playbook={activePlaybook} 
+          onSave={handleStrategySave} 
+        />
+      )}
+
+      {showStats && (
+        <StatsModal 
+          isOpen={showStats} 
+          onClose={() => setShowStats(false)} 
+          jobs={jobs} 
+        />
+      )}
+
+      {/* COMPONENTES DEL SCRAPER DE LINKEDIN Y NOTIFICACIÓN */}
+      <AddJobModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        RENDER_API_URL={RENDER_API_URL}
+        onToastTrigger={(toastData) => setToast(toastData)}
+      />
+
+      <Toast toast={toast} onClose={() => setToast(null)} />
     </div>
   );
 }
