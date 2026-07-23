@@ -11,6 +11,13 @@ import {
 export default function JobPage({ jobs = [], onSave, pendingTasks = [] }) {
   const { id } = useParams();
   const navigate = useNavigate();
+
+  // 🔍 LOGS DE CONTROL (Míralos en la consola de Chrome)
+  console.log("👉 ID de la URL:", id, typeof id);
+  console.log("👉 Total Jobs recibidos:", jobs.length);
+  if (jobs.length > 0) {
+    console.log("👉 Primeros IDs en la lista de Jobs:", jobs.slice(0, 3).map(j => ({ id: j.id, type: typeof j.id })));
+  }
   
   // Buscamos la oferta de forma segura
   const job = jobs.find(j => String(j?.id) === String(id));
