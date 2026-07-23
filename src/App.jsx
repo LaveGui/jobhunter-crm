@@ -455,7 +455,10 @@ export default function App() {
           </div>
         } />
 
-        <Route path="/job/:id" element={<JobPage />} />
+        <Route 
+               path="/job/:id" 
+              element={<JobPage jobs={jobs} onSave={handleSaveJob} pendingTasks={pendingTasks} />} 
+        />
         <Route path="/cv" element={<CVBuilder />} />
       </Routes>
 
