@@ -8,10 +8,12 @@ import {
   ChevronDown, ChevronUp, Edit2, Calendar, Milestone
 } from 'lucide-react'; 
 
-export default function JobPage({ jobs, onSave, pendingTasks = [] }) {
+export default function JobPage({ jobs = [], onSave, pendingTasks = [] }) {
   const { id } = useParams();
   const navigate = useNavigate();
-  const job = jobs?.find(j => String(j.id) === String(id));
+  
+  // Buscamos la oferta de forma segura
+  const job = jobs.find(j => String(j?.id) === String(id));
 
   const [formData, setFormData] = useState(null);
   const [hasChanges, setHasChanges] = useState(false);
@@ -32,6 +34,7 @@ export default function JobPage({ jobs, onSave, pendingTasks = [] }) {
 
   const jobTasks = pendingTasks.filter(t => String(t.jobId) === String(id));
 
+  // 🟢 EFECTO CORREGIDO: Se ejecuta en cuanto 'job' o 'id' estén disponibles/cambien
   useEffect(() => {
     if (job) {
       setFormData({
@@ -49,7 +52,7 @@ export default function JobPage({ jobs, onSave, pendingTasks = [] }) {
         cv_text: job.cv_text || '' 
       });
     }
-  }, [job]);
+  }, [id, job]); // 👈 Escuchamos tanto 'id' como 'job'
 
   const handleChange = (e) => { setFormData({ ...formData, [e.target.name]: e.target.value }); setHasChanges(true); };
 
