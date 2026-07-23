@@ -8,19 +8,27 @@ export default function useGoogleSheets() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // 1. LEER (GET)
+ // 1. LEER (GET)
   const fetchJobs = async () => {
     try {
       setLoading(true);
       const response = await fetch(SCRIPT_URL);
       if (!response.ok) throw new Error("Error conectando con Google Sheets");
       const data = await response.json();
-      // Aseguramos que los datos tengan el formato correcto
-      const formattedData = data.map(job => ({
-        ...job,
-        // Convertimos strings JSON a objetos reales si es necesario, o los dejamos para el componente
-        id: job.id || Date.now() + Math.random() // Fallback ID
-      }));
+      
+      // Aseguramos que los datos tengan el ID formateado correctamente como String
+      const formattedData = data.map(job => {
+        // Preservamos el ID real si existe (sea número o string)
+        const realId = (job.id !== undefined && job.id !== null && job.id !== '') 
+          ? String(job.id) 
+          : String(Date.now() + Math.random());
+
+        return {
+          ...job,
+          id: realId
+        };
+      });
+
       setJobs(formattedData);
     } catch (err) {
       console.error(err);
