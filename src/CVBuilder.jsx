@@ -176,50 +176,67 @@ export default function CVBuilder() {
     }
   };
 
-  const handleGuardarYAnalizar = async () => {
+  const generarYAutocompletarCV = async () => {
   if (!targetJob) {
-    alert("⚠️ Primero debes vincular una oportunidad de trabajo.");
+    alert("⚠️ Vincula primero una oportunidad.");
     return;
   }
-
   setLoadingQA(true);
-  setQaResult(null); // Limpiamos análisis anteriores
 
-  const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzKzkPB0Rm_vqLFNRQocEAsfLcw7aIAZcRdceJmWRJmLLG0QA5qUx3vjFpi3PnlknJWvQ/exec"; 
+  const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzKzkPB0Rm_vqLFNRQocEAsfLcw7aIAZcRdceJmWRJmLLG0QA5qUx3vjFpi3PnlknJWvQ/exec";
 
   try {
     const response = await fetch(WEB_APP_URL, {
       method: "POST",
       mode: "cors",
-      headers: {
-        "Content-Type": "text/plain;charset=utf-8"
-      },
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify({
-        action: "guardarYAnalizarCV",
-        id: targetJob.id,
-        cv_text: cvToString(cv), // Tu función existente que pasa el CV a texto
+        action: "generarCVCompleto",
         company: targetJob.company || "",
         title: targetJob.role || targetJob.title || "",
         description: targetJob.description || ""
       })
     });
 
-    const data = await response.json();
+    const resultado = await response.json();
+    if (resultado.result !== "success") throw new Error(resultado.message);
 
-    if (data.result === 'success') {
-      // Guardamos la respuesta del QA que viene desde Apps Script
-      setQaResult(data.qa); 
-      setShowQaModal(true); // Abrimos el panel/modal con los resultados
-      
-      // Opcional: Actualizamos el estado local del targetJob para reflejar cambios si hiciera falta
-      alert("✅ ¡CV guardado en Sheets con éxito y analizado por Groq!");
-    } else {
-      throw new Error(data.message || "Error desconocido en el servidor");
-    }
+    const datos = resultado.cv_json;
+
+    setCv(prev => ({
+      ...prev,
+      personal: {
+        ...prev.personal,
+        title: datos.titulo_profesional || prev.personal.title,
+        summary: datos.summary || prev.personal.summary
+      },
+      skills: Array.isArray(datos.skills) ? datos.skills : prev.skills,
+      experience: Array.isArray(datos.experiences)
+        ? datos.experiences.map((exp, i) => ({
+            id: Date.now() + i,
+            role: exp.role || '',
+            company: exp.company || '',
+            date: exp.date || '',
+            description: Array.isArray(exp.bullets)
+              ? exp.bullets.map(b => `- ${b}`).join('\n')
+              : (exp.description || '')
+          }))
+        : prev.experience,
+      education: Array.isArray(datos.education)
+        ? datos.education.map((edu, i) => ({
+            id: Date.now() + i + 50,
+            degree: edu.degree || '',
+            school: edu.school || '',
+            date: edu.date || ''
+          }))
+        : prev.education
+    }));
+
+    alert("✅ CV generado y cargado. Revisa, ajusta y descarga.");
 
   } catch (error) {
-    console.error("Error al guardar y analizar el CV:", error);
-    alert("❌ Error al procesar la solicitud: " + error.message);
+    alert("❌ Error: " + error.message);
+    console.error(error);
   } finally {
     setLoadingQA(false);
   }
@@ -459,14 +476,16 @@ export default function CVBuilder() {
       </div>
 
       {/* FILA 2: Tu nuevo súper botón de Guardar & QA ocupando todo el ancho disponible para que luzca bien */}
-      <button 
-        onClick={handleGuardarYAnalizar} 
-        disabled={loadingQA} 
-        className={`w-full ${loadingQA ? 'bg-purple-800' : 'bg-purple-600 hover:bg-purple-700'} text-white py-2 rounded text-xs font-bold flex items-center justify-center gap-1 transition-colors`}
+      <button
+      onClick={generarYAutocompletarCV}
+  disabled={loadingQA || !targetJob}
+  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-violet-600 to-blue-600 text-white text-sm font-semibold rounded-lg shadow-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
       >
-        <Sparkles size={14} className={loadingQA ? "animate-spin" : ""}/>
-        {loadingQA ? "Guardando y Analizando..." : "Guardar & Analizar Calidad (Groq)"}
-      </button>
+    {loadingQA
+    ? <><span className="animate-spin inline-block">⚙️</span> Groq + Gemini (~25s)...</>
+    : <><Sparkles size={15}/> Generar CV con IA</>
+    }
+    </button>
 
     </div>
   ) : (
