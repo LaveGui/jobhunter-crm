@@ -86,7 +86,7 @@ export default function CVBuilder() {
       phone: "+34 666 110 145",
       location: "Valencia, España",
       linkedin: "/in/guidolavesari",
-      photoUrl: "", 
+      photoUrl: "https://raw.githubusercontent.com/LaveGui/jobhunter-crm/43074c8a146e29faebb4f02e9259359799cd2d6b/public/foto-guido.jpg", 
       summary: "Profesional enfocado en **Sales Enablement** y **Arquitectura de Software**.\n- Experto en CRM\n- Liderazgo de equipos ágiles"
     },
     experience: [
@@ -105,7 +105,9 @@ export default function CVBuilder() {
   });
 
   const [design, setDesign] = useState({
-    nameSize: 32, roleSize: 14, companySize: 12, textSize: 10, lineHeight: 1.4, sectionGap: 20,
+    nameSize: 32, roleSize: 14, companySize: 12, textSize: 9, lineHeight: 1.3, sectionGap: 16,
+    leftTextSize: 10, leftLineHeight: 1.4,
+    paddingTop: 32, headerMarginBottom: 24, headerToExpGap: 20,
   });
   const [loadingQA, setLoadingQA] = useState(false);
   const [qaResult, setQaResult] = useState(null); // Guardará el objeto de feedback de Groq
@@ -599,12 +601,28 @@ export default function CVBuilder() {
                 </div>
               </div>
               <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                <h3 className="text-xs font-bold text-gray-800 uppercase mb-4 flex items-center gap-2"><AlignJustify size={14}/> Espaciado</h3>
+                <h3 className="text-xs font-bold text-gray-800 uppercase mb-4 flex items-center gap-2"><AlignJustify size={14}/> Espaciado (Columna Derecha)</h3>
                 <div className="space-y-4">
-                  <div><label className="flex justify-between text-xs font-semibold text-gray-600 mb-1">Interlineado <span>{design.lineHeight}</span></label><input type="range" min="1" max="2" step="0.1" value={design.lineHeight} onChange={(e) => setDesign({...design, lineHeight: Number(e.target.value)})} className="w-full accent-gray-600"/></div>
-                  <div><label className="flex justify-between text-xs font-semibold text-gray-600 mb-1">Separación Secciones <span>{design.sectionGap}px</span></label><input type="range" min="5" max="50" value={design.sectionGap} onChange={(e) => setDesign({...design, sectionGap: Number(e.target.value)})} className="w-full accent-gray-600"/></div>
+                  <div><label className="flex justify-between text-xs font-semibold text-gray-600 mb-1">Interlineado <span>{design.lineHeight}</span></label><input type="range" min="1" max="2" step="0.05" value={design.lineHeight} onChange={(e) => setDesign({...design, lineHeight: Number(e.target.value)})} className="w-full accent-gray-600"/></div>
+                  <div><label className="flex justify-between text-xs font-semibold text-gray-600 mb-1">Separación entre experiencias <span>{design.sectionGap}px</span></label><input type="range" min="4" max="40" value={design.sectionGap} onChange={(e) => setDesign({...design, sectionGap: Number(e.target.value)})} className="w-full accent-gray-600"/></div>
+                  <div><label className="flex justify-between text-xs font-semibold text-gray-600 mb-1">Espacio encabezado → experiencia <span>{design.headerToExpGap}px</span></label><input type="range" min="4" max="48" value={design.headerToExpGap} onChange={(e) => setDesign({...design, headerToExpGap: Number(e.target.value)})} className="w-full accent-gray-600"/></div>
+                  <div><label className="flex justify-between text-xs font-semibold text-gray-600 mb-1">Margen superior (ambas columnas) <span>{design.paddingTop}px</span></label><input type="range" min="8" max="80" value={design.paddingTop} onChange={(e) => setDesign({...design, paddingTop: Number(e.target.value)})} className="w-full accent-gray-600"/></div>
+                  <div><label className="flex justify-between text-xs font-semibold text-gray-600 mb-1">Margen bajo nombre/título <span>{design.headerMarginBottom}px</span></label><input type="range" min="4" max="48" value={design.headerMarginBottom} onChange={(e) => setDesign({...design, headerMarginBottom: Number(e.target.value)})} className="w-full accent-gray-600"/></div>
                 </div>
               </div>
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                <h3 className="text-xs font-bold text-blue-800 uppercase mb-4 flex items-center gap-2"><AlignJustify size={14}/> Columna Izquierda</h3>
+                <div className="space-y-4">
+                  <div><label className="flex justify-between text-xs font-semibold text-gray-600 mb-1">Tamaño texto perfil/info <span>{design.leftTextSize}px</span></label><input type="range" min="7" max="14" value={design.leftTextSize} onChange={(e) => setDesign({...design, leftTextSize: Number(e.target.value)})} className="w-full accent-blue-600"/></div>
+                  <div><label className="flex justify-between text-xs font-semibold text-gray-600 mb-1">Interlineado columna izq. <span>{design.leftLineHeight}</span></label><input type="range" min="1" max="2" step="0.05" value={design.leftLineHeight} onChange={(e) => setDesign({...design, leftLineHeight: Number(e.target.value)})} className="w-full accent-blue-600"/></div>
+                </div>
+              </div>
+              <button
+                onClick={() => setDesign({ nameSize: 32, roleSize: 14, companySize: 12, textSize: 9, lineHeight: 1.3, sectionGap: 16, leftTextSize: 10, leftLineHeight: 1.4, paddingTop: 32, headerMarginBottom: 24, headerToExpGap: 20 })}
+                className="w-full text-xs text-slate-500 border border-slate-200 rounded-lg py-2 hover:bg-slate-50"
+              >
+                ↺ Restablecer diseño por defecto
+              </button>
             </div>
           )}
         </div>
@@ -613,22 +631,22 @@ export default function CVBuilder() {
       {/* PREVIEW */}
       <main className="flex-1 bg-gray-500 overflow-y-auto p-4 md:p-8 flex justify-center print:p-0 print:bg-white">
         <div className="relative">
-          <div className="print-hidden absolute left-0 w-full border-b-2 border-dashed border-red-400 z-50 flex items-end justify-end pointer-events-none opacity-50" style={{ top: '297mm', width: '210mm' }}><span className="bg-red-400 text-white text-[10px] px-2 py-0.5 rounded-t font-bold">FIN DE PÁGINA 1</span></div>
+          <div className="print-hidden absolute left-0 border-b-2 border-dashed border-red-500 z-50 flex items-end justify-end pointer-events-none" style={{ top: '297mm', width: '210mm' }}><span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-t font-bold">⚠ FIN PÁGINA 1</span></div>
           <div className="cv-container bg-white shadow-2xl w-[210mm] min-h-[297mm] flex items-stretch overflow-hidden" style={{ background: `linear-gradient(90deg, ${cv.themeColor} 0%, ${cv.themeColor} 32%, #ffffff 32%, #ffffff 100%)` }}>
             
             {/* COLUMNA IZQUIERDA */}
-            <div className={`w-[32%] p-6 pt-10 flex flex-col shrink-0 text-white ${debugClass}`}>
+            <div className={`w-[32%] p-6 flex flex-col shrink-0 text-white ${debugClass}`} style={{ paddingTop: `${design.paddingTop}px` }}>
               <div className={`w-28 h-28 rounded-full mx-auto mb-6 overflow-hidden flex items-center justify-center shrink-0 border-4 border-white/30 bg-white/20 ${debugClass}`}>
                  {cv.personal.photoUrl ? <img src={cv.personal.photoUrl} alt="Profile" className="w-full h-full object-cover" crossOrigin="anonymous" /> : <span className="text-4xl font-bold">{cv.personal.name.charAt(0)}</span>}
               </div>
-              <div className="space-y-8 flex-1">
+              <div className="space-y-6 flex-1">
                 <div className={debugClass}>
-                  <h3 className="font-bold uppercase tracking-wider mb-3 pb-1 text-xs border-b border-white/30 text-white/90 flex items-center gap-2"><LayoutTemplate size={12}/> {t('profile')}</h3>
-                  <RichText text={cv.personal.summary} className="text-[10px] leading-relaxed text-white/90 text-justify" />
+                  <h3 className="font-bold uppercase tracking-wider mb-2 pb-1 text-xs border-b border-white/30 text-white/90 flex items-center gap-2"><LayoutTemplate size={12}/> {t('profile')}</h3>
+                  <RichText text={cv.personal.summary} className="text-white/90 text-justify" style={{ fontSize: `${design.leftTextSize}px`, lineHeight: design.leftLineHeight }} />
                 </div>
                 <div className={debugClass}>
                   <h3 className="font-bold uppercase tracking-wider mb-3 pb-1 text-xs border-b border-white/30 text-white/90">{t('contact')}</h3>
-                  <ul className="space-y-3 text-[10px] text-white/90">
+                  <ul className="space-y-2 text-white/90" style={{ fontSize: `${design.leftTextSize}px` }}>
                     <li className="flex items-center gap-3"><div className="shrink-0"><Phone size={12}/></div> <span>{cv.personal.phone}</span></li>
                     <li className="flex items-center gap-3"><div className="shrink-0"><Mail size={12}/></div> <span className="break-all">{cv.personal.email}</span></li>
                     <li className="flex items-center gap-3"><div className="shrink-0"><MapPin size={12}/></div> <span>{cv.personal.location}</span></li>
@@ -637,18 +655,18 @@ export default function CVBuilder() {
                 </div>
                 <div className={debugClass}>
                   <h3 className="font-bold uppercase tracking-wider mb-3 pb-1 text-xs border-b border-white/30 text-white/90">{t('skills')}</h3>
-                  <div className="flex flex-wrap gap-2">{cv.skills.map((s, i) => <span key={i} className="px-2 py-1 rounded text-[10px] bg-white/20 text-white flex items-center justify-center">{s}</span>)}</div>
+                  <div className="flex flex-wrap gap-1.5">{cv.skills.map((s, i) => <span key={i} className="px-2 py-0.5 rounded bg-white/20 text-white flex items-center justify-center" style={{ fontSize: `${design.leftTextSize}px` }}>{s}</span>)}</div>
                 </div>
                 <div className={debugClass}>
                   <h3 className="font-bold uppercase tracking-wider mb-3 pb-1 text-xs border-b border-white/30 text-white/90">{t('education')}</h3>
                   {cv.education.map((edu) => (
-                     <div key={edu.id} className="mb-4 text-white/90"><p className="font-bold text-[10px] mb-0.5">{edu.degree}</p><p className="text-[9px] opacity-80">{edu.school}</p><p className="text-[9px] opacity-80">{edu.date}</p></div>
+                     <div key={edu.id} className="mb-3 text-white/90"><p className="font-bold mb-0.5" style={{ fontSize: `${design.leftTextSize}px` }}>{edu.degree}</p><p className="opacity-80" style={{ fontSize: `${Math.max(7, design.leftTextSize - 1)}px` }}>{edu.school}</p><p className="opacity-80" style={{ fontSize: `${Math.max(7, design.leftTextSize - 1)}px` }}>{edu.date}</p></div>
                   ))}
                 </div>
                 <div className={debugClass}>
                   <h3 className="font-bold uppercase tracking-wider mb-3 pb-1 text-xs border-b border-white/30 text-white/90">{t('languages')}</h3>
                   {cv.languages.map((langItem) => (
-                    <div key={langItem.id} className="mb-2 flex justify-between items-baseline text-[10px] text-white/90">
+                    <div key={langItem.id} className="mb-1.5 flex justify-between items-baseline text-white/90" style={{ fontSize: `${design.leftTextSize}px` }}>
                       <span className="font-semibold">{t(langItem.language)}</span>
                       <span className="opacity-80">{t(langItem.level)}</span>
                     </div>
@@ -658,13 +676,13 @@ export default function CVBuilder() {
             </div>
 
             {/* COLUMNA DERECHA */}
-            <div className={`w-[68%] p-8 pt-12 flex flex-col text-slate-800 ${debugClass}`}>
-              <header className="mb-8 pb-4 shrink-0 border-b-2" style={{ borderColor: cv.themeColor }}>
+            <div className={`w-[68%] p-8 flex flex-col text-slate-800 ${debugClass}`} style={{ paddingTop: `${design.paddingTop}px` }}>
+              <header className="pb-4 shrink-0 border-b-2" style={{ borderColor: cv.themeColor, marginBottom: `${design.headerMarginBottom}px` }}>
                 <h1 className="font-extrabold uppercase tracking-tight leading-none mb-2 text-slate-900" style={{ fontSize: `${design.nameSize}px` }}>{cv.personal.name}</h1>
                 <h2 className="font-bold tracking-wide" style={{ color: cv.themeColor, fontSize: '18px' }}>{cv.personal.title}</h2>
               </header>
               <section className="flex-1">
-                <h3 className="text-xs font-bold uppercase tracking-wider mb-6 flex items-center gap-2 text-slate-600">
+                <h3 className="text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-slate-600" style={{ marginBottom: `${design.headerToExpGap}px` }}>
                   <span className="p-1 rounded flex items-center justify-center w-5 h-5 text-white" style={{ backgroundColor: cv.themeColor }}>
                     <LayoutTemplate size={12}/>
                   </span> 
