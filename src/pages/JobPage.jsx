@@ -38,6 +38,8 @@ export default function JobPage({ jobs = [], onSave, pendingTasks = [] }) {
   const [logDate, setLogDate] = useState(''); 
 
   const [newContact, setNewContact] = useState({ name: '', role: 'Recruiter', linkedin: '', email: '', phone: '' });
+  const [loadingPrompt, setLoadingPrompt] = useState(false);
+  const [showPromptToast, setShowPromptToast] = useState(false);
 
   const jobTasks = pendingTasks.filter(t => String(t.jobId) === String(id));
 
@@ -132,6 +134,55 @@ export default function JobPage({ jobs = [], onSave, pendingTasks = [] }) {
     const todayLog = new Date().toLocaleString('es-ES');
     setFormData({ ...formData, status: 'Aplicado', date_applied: todayISO, activity_log: [{ date: todayLog, type: 'apply', text: '✅ CV Enviado', icon: '🚀' }, ...formData.activity_log] });
     setHasChanges(true);
+  };
+
+  // --- GENERAR PROMPT DE GROQ DIRECTO DESDE LA FICHA ---
+  const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzKzkPB0Rm_vqLFNRQocEAsfLcw7aIAZcRdceJmWRJmLLG0QA5qUx3vjFpi3PnlknJWvQ/exec";
+
+  const generarPromptRapido = async () => {
+    setLoadingPrompt(true);
+    try {
+      const response = await fetch(WEB_APP_URL, {
+        method: "POST",
+        mode: "cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          action: "generarPromptCV",
+          company: formData.company || "",
+          title: formData.title || "",
+          description: formData.description || ""
+        })
+      });
+
+      const resultado = await response.json();
+      if (resultado.error || resultado.result === "error") {
+        throw new Error(resultado.message || "Error devuelto por Apps Script");
+      }
+
+      const promptParaCopiar = resultado.prompt_final;
+      if (!promptParaCopiar) {
+        alert("⚠️ La IA se ejecutó pero no devolvió el campo 'prompt_final'.");
+        return;
+      }
+
+      await navigator.clipboard.writeText(promptParaCopiar);
+      setShowPromptToast(true);
+
+    } catch (error) {
+      console.error("Error al generar prompt con IA:", error);
+      alert("❌ Error al generar el prompt con IA: " + error.message);
+    } finally {
+      setLoadingPrompt(false);
+    }
+  };
+
+  // Click en el toast: abre la oferta en pestaña nueva + navega a CV Studio, en el mismo gesto del usuario
+  const handleToastClick = () => {
+    setShowPromptToast(false);
+    if (formData.job_link) {
+      window.open(formData.job_link, '_blank');
+    }
+    navigate('/cv', { state: { jobContext: formData } });
   };
 
   const getLogsToRender = () => {
@@ -364,6 +415,9 @@ export default function JobPage({ jobs = [], onSave, pendingTasks = [] }) {
                     <h3 className="font-bold text-indigo-900 text-sm flex items-center gap-2"><Palette size={16}/> Adaptación de CV</h3>
                     {formData.date_applied ? <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded">ENVIADO</span> : <span className="bg-slate-100 text-slate-500 text-[10px] font-bold px-2 py-0.5 rounded">PENDIENTE</span>}
                  </div>
+                 <button onClick={generarPromptRapido} disabled={loadingPrompt} className="w-full py-2 bg-purple-50 text-purple-700 font-bold text-xs rounded hover:bg-purple-100 transition-colors mb-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                    {loadingPrompt ? <><span className="animate-spin">⚙️</span> Generando con Groq...</> : <><BrainCircuit size={14}/> Generar Prompt para GEM</>}
+                 </button>
                  <button onClick={() => navigate('/cv', { state: { jobContext: formData } })} className="w-full py-2 bg-indigo-50 text-indigo-700 font-bold text-xs rounded hover:bg-indigo-100 transition-colors mb-2">{formData.id ? '🖊️ Ir al CV Studio' : '💾 Guardar para Editar'}</button>
                  {!formData.date_applied && <button onClick={markAsApplied} className="w-full py-2 bg-indigo-600 text-white font-bold text-xs rounded hover:bg-indigo-700 transition-colors">Marcar como Enviado</button>}
               </div>
@@ -379,6 +433,28 @@ export default function JobPage({ jobs = [], onSave, pendingTasks = [] }) {
            </div>
         </div>
       </div>
+
+      {/* TOAST: Prompt copiado, click para abrir oferta + ir a CV Studio */}
+      {showPromptToast && (
+        <div className="fixed bottom-6 right-6 z-50 animate-fadeIn">
+          <button
+            onClick={handleToastClick}
+            className="bg-slate-900 text-white px-5 py-4 rounded-xl shadow-2xl flex items-center gap-3 hover:bg-slate-800 transition-colors border border-slate-700 max-w-sm text-left"
+          >
+            <div className="bg-purple-500/20 p-2 rounded-lg shrink-0"><Check size={18} className="text-purple-300"/></div>
+            <div>
+              <div className="font-bold text-sm">✅ Prompt copiado al portapapeles</div>
+              <div className="text-xs text-slate-400 mt-0.5">Click para abrir la oferta e ir al CV Studio →</div>
+            </div>
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowPromptToast(false); }}
+              className="text-slate-500 hover:text-white ml-1 shrink-0"
+            >
+              <X size={16}/>
+            </button>
+          </button>
+        </div>
+      )}
     </div>
   );
 }
