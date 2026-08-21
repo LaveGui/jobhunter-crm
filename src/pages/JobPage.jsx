@@ -40,6 +40,7 @@ export default function JobPage({ jobs = [], onSave, pendingTasks = [] }) {
   const [newContact, setNewContact] = useState({ name: '', role: 'Recruiter', linkedin: '', email: '', phone: '' });
   const [loadingPrompt, setLoadingPrompt] = useState(false);
   const [showPromptToast, setShowPromptToast] = useState(false);
+  const [showContactPrompt, setShowContactPrompt] = useState(false);
 
   const jobTasks = pendingTasks.filter(t => String(t.jobId) === String(id));
 
@@ -72,6 +73,20 @@ export default function JobPage({ jobs = [], onSave, pendingTasks = [] }) {
     delete payload.ai_summary; delete payload.ai_requirements; delete payload.ai_benefits; delete payload.tech_stack;
     await onSave(payload);
     setHasChanges(false); setIsSaving(false);
+    if (formData.contacts.length === 0 && formData.company) {
+      setShowContactPrompt(true);
+    }
+  };
+
+  const companySlug = (formData?.company || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+
+  const openLinkedInPeopleSearch = () => {
+    const url = `https://www.linkedin.com/company/${companySlug}/people/?keywords=talent%20OR%20hr%20OR%20people%20OR%20recruit%20OR%20marketing`;
+    window.open(url, '_blank');
   };
 
   const handleBack = () => { if (hasChanges) { if (window.confirm('⚠️ Tienes cambios sin guardar. ¿Salir?')) navigate('/'); } else { navigate('/'); } };
@@ -453,6 +468,41 @@ export default function JobPage({ jobs = [], onSave, pendingTasks = [] }) {
               <X size={16}/>
             </button>
           </button>
+        </div>
+      )}
+      {/* MODAL: Sugerencia de buscar y añadir contactos tras guardar */}
+      {showContactPrompt && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="bg-blue-50 p-2.5 rounded-xl"><UserPlus size={20} className="text-blue-600"/></div>
+              <h3 className="font-bold text-slate-800 text-base">¿Buscamos contactos en {formData.company}?</h3>
+            </div>
+            <p className="text-sm text-slate-500 mb-5">
+              Aún no tienes contactos guardados para esta empresa. Puedo abrirte la búsqueda de gente
+              de LinkedIn filtrada por Talent, HR, People y Marketing, y luego los añades manualmente.
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => { openLinkedInPeopleSearch(); setShowContactPrompt(false); setContactView('add'); }}
+                className="w-full py-2.5 bg-blue-600 text-white font-bold text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+              >
+                <ExternalLink size={15}/> Buscar en LinkedIn y añadir
+              </button>
+              <button
+                onClick={() => { setShowContactPrompt(false); setContactView('add'); }}
+                className="w-full py-2.5 bg-slate-100 text-slate-600 font-bold text-sm rounded-lg hover:bg-slate-200 transition-colors"
+              >
+                Añadir manualmente
+              </button>
+              <button
+                onClick={() => setShowContactPrompt(false)}
+                className="w-full py-2 text-slate-400 text-xs hover:text-slate-600 transition-colors"
+              >
+                Ahora no
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
