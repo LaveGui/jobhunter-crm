@@ -85,9 +85,16 @@ export default function JobPage({ jobs = [], onSave, pendingTasks = [] }) {
     .replace(/(^-|-$)/g, '');
 
   const openLinkedInPeopleSearch = () => {
-    const url = `https://www.linkedin.com/company/${companySlug}/people/?keywords=talent%20OR%20hr%20OR%20people%20OR%20recruit%20OR%20marketing`;
-    window.open(url, '_blank');
-  };
+  let peopleUrl;
+  if (formData.company_linkedin_url) {
+    // normaliza cualquier sufijo (/life, /jobs, /about, etc.) a /people/
+    const base = formData.company_linkedin_url.split('/company/')[1]?.split('/')[0];
+    peopleUrl = `https://www.linkedin.com/company/${base}/people/?keywords=talent%20OR%20hr%20OR%20people%20OR%20recruit%20OR%20marketing`;
+  } else {
+    peopleUrl = `https://www.linkedin.com/company/${companySlug}/people/?keywords=talent%20OR%20hr%20OR%20people%20OR%20recruit%20OR%20marketing`;
+  }
+  window.open(peopleUrl, '_blank');
+};
 
   const handleBack = () => { if (hasChanges) { if (window.confirm('⚠️ Tienes cambios sin guardar. ¿Salir?')) navigate('/'); } else { navigate('/'); } };
   const handleCopyDraft = () => { navigator.clipboard.writeText(formData.message_drafts); setDraftCopied(true); setTimeout(() => setDraftCopied(false), 2000); };
