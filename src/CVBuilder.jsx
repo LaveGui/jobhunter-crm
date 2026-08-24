@@ -110,7 +110,6 @@ export default function CVBuilder() {
     leftTextSize: 10, leftLineHeight: 1.4,
     paddingTop: 32, headerMarginBottom: 24, headerToExpGap: 20,
   });
-  const [loadingQA, setLoadingQA] = useState(false);
   const [qaResult, setQaResult] = useState(null); // Guardará el objeto de feedback de Groq
   const [showQaModal, setShowQaModal] = useState(false); // Para abrir/cerrar la ventana de resultados
 
@@ -189,72 +188,6 @@ export default function CVBuilder() {
       setLoadingIA(false);
     }
   };
-
-  const generarYAutocompletarCV = async () => {
-  if (!targetJob) {
-    alert("⚠️ Vincula primero una oportunidad.");
-    return;
-  }
-  setLoadingQA(true);
-
-  const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzKzkPB0Rm_vqLFNRQocEAsfLcw7aIAZcRdceJmWRJmLLG0QA5qUx3vjFpi3PnlknJWvQ/exec";
-
-  try {
-    const response = await fetch(WEB_APP_URL, {
-      method: "POST",
-      mode: "cors",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({
-        action: "generarCVCompleto",
-        company: targetJob.company || "",
-        title: targetJob.role || targetJob.title || "",
-        description: targetJob.description || ""
-      })
-    });
-
-    const resultado = await response.json();
-    if (resultado.result !== "success") throw new Error(resultado.message);
-
-    const datos = resultado.cv_json;
-
-    setCv(prev => ({
-      ...prev,
-      personal: {
-        ...prev.personal,
-        title: datos.titulo_profesional || prev.personal.title,
-        summary: datos.summary || prev.personal.summary
-      },
-      skills: Array.isArray(datos.skills) ? datos.skills : prev.skills,
-      experience: Array.isArray(datos.experiences)
-        ? datos.experiences.map((exp, i) => ({
-            id: Date.now() + i,
-            role: exp.role || '',
-            company: exp.company || '',
-            date: exp.date || '',
-            description: Array.isArray(exp.bullets)
-              ? exp.bullets.map(b => `- ${b}`).join('\n')
-              : (exp.description || '')
-          }))
-        : prev.experience,
-      education: Array.isArray(datos.education)
-        ? datos.education.map((edu, i) => ({
-            id: Date.now() + i + 50,
-            degree: edu.degree || '',
-            school: edu.school || '',
-            date: edu.date || ''
-          }))
-        : prev.education
-    }));
-
-    setSaveToast({ type: 'success', message: 'CV generado y cargado. Revisa, ajusta y descarga.' });
-
-  } catch (error) {
-    setSaveToast({ type: 'error', message: 'Error: ' + error.message });
-    console.error(error);
-  } finally {
-    setLoadingQA(false);
-  }
-};
 
   const importarDesdeJson = () => {
     setErrorJson('');
@@ -441,9 +374,9 @@ export default function CVBuilder() {
 
       setCv(prev => ({ ...prev, personal: { ...prev.personal, summary: newSummary }, skills: newSkills, experience: newExperience.length > 0 ? newExperience : cv.experience }));
       setShowHistory(false);
-      alert("✅ Contenido importado con éxito.");
+      setSaveToast({ type: 'success', message: 'Contenido importado con éxito' });
     } catch (e) {
-      alert("❌ No se pudo importar este formato.");
+      setSaveToast({ type: 'error', message: 'No se pudo importar este formato' });
     }
   };
 
@@ -527,18 +460,6 @@ export default function CVBuilder() {
           <Save size={14}/> Guardar CV
         </button>
       </div>
-
-      {/* FILA 2: Tu nuevo súper botón de Guardar & QA ocupando todo el ancho disponible para que luzca bien */}
-      <button
-      onClick={generarYAutocompletarCV}
-  disabled={loadingQA || !targetJob}
-  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-violet-600 to-blue-600 text-white text-sm font-semibold rounded-lg shadow-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-      >
-    {loadingQA
-    ? <><span className="animate-spin inline-block">⚙️</span> Groq + Gemini (~25s)...</>
-    : <><Sparkles size={15}/> Generar CV con IA</>
-    }
-    </button>
 
     </div>
   ) : (
