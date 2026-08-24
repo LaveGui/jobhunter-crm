@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, useLocation } from "react-router-dom";
-import { Mail, Phone, MapPin, Linkedin, Trash2, PlusCircle, Printer, ArrowLeft, LayoutTemplate, Globe, Download, ScanEye, Settings, Type, AlignJustify, Briefcase, Save, History, Sparkles } from 'lucide-react'; 
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Mail, Phone, MapPin, Linkedin, Trash2, PlusCircle, Printer, ArrowLeft, LayoutTemplate, Globe, Download, ScanEye, Settings, Type, AlignJustify, Briefcase, Save, History, Sparkles, UserPlus, ExternalLink, Check, X } from 'lucide-react'; 
 import useGoogleSheets from './hooks/useGoogleSheets';
 
 // --- COMPONENTE AUXILIAR PARA NEGRITAS Y LISTAS ---
@@ -74,6 +74,7 @@ const TRANSLATIONS = {
 
 export default function CVBuilder() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { jobs, updateJob } = useGoogleSheets();
   
   // --- ESTADO INICIAL DEL CV ---
@@ -125,6 +126,11 @@ export default function CVBuilder() {
   const [jsonImport, setJsonImport] = useState('');
   const [errorJson, setErrorJson] = useState('');
 
+  // Nuevos: toast de guardado + modal de sugerencia de contactos
+  const [saveToast, setSaveToast] = useState(null); // { type: 'success'|'error', message: string } | null
+  const [showContactPrompt, setShowContactPrompt] = useState(false);
+  const [savedJobPayload, setSavedJobPayload] = useState(null);
+
   useEffect(() => {
     if (location.state?.jobContext) {
       setTargetJob(location.state.jobContext);
@@ -132,6 +138,12 @@ export default function CVBuilder() {
   }, [location]);
 
   const t = (key) => TRANSLATIONS[lang][key] || key;
+
+  useEffect(() => {
+    if (!saveToast) return;
+    const timer = setTimeout(() => setSaveToast(null), 4000);
+    return () => clearTimeout(timer);
+  }, [saveToast]);
 
   // --- FUNCIÓN CONECTADA CON APPS SCRIPT ---
   const generarEstrategiaIA = async () => {
@@ -165,14 +177,14 @@ export default function CVBuilder() {
 
       if (promptParaCopiar) {
         await navigator.clipboard.writeText(promptParaCopiar);
-        alert("🚀 ¡Estrategia personalizada y Prompt Final copiados al portapapeles listos para tu Gem!");
+        setSaveToast({ type: 'success', message: 'Estrategia y Prompt copiados al portapapeles, listos para tu Gem' });
       } else {
-        alert("⚠️ La IA se ejecutó pero no devolvió el campo 'prompt_final'. Revisa los logs de Apps Script.");
+        setSaveToast({ type: 'error', message: "La IA no devolvió el campo 'prompt_final'. Revisa los logs de Apps Script." });
       }
 
     } catch (error) {
       console.error("Error al conectar con la IA de Apps Script:", error);
-      alert("❌ Error al generar el prompt con IA. Asegúrate de haber publicado la última versión del script como Web App pública.");
+      setSaveToast({ type: 'error', message: 'Error al generar el prompt con IA.' });
     } finally {
       setLoadingIA(false);
     }
@@ -234,10 +246,10 @@ export default function CVBuilder() {
         : prev.education
     }));
 
-    alert("✅ CV generado y cargado. Revisa, ajusta y descarga.");
+    setSaveToast({ type: 'success', message: 'CV generado y cargado. Revisa, ajusta y descarga.' });
 
   } catch (error) {
-    alert("❌ Error: " + error.message);
+    setSaveToast({ type: 'error', message: 'Error: ' + error.message });
     console.error(error);
   } finally {
     setLoadingQA(false);
@@ -350,10 +362,49 @@ export default function CVBuilder() {
       const payload = { ...targetJob, status: newStatus, cv_text: cvTextDump, date_applied: newDateApplied, last_updated: new Date().toISOString() };
       await updateJob(payload);
       setTargetJob(payload);
-      alert("✅ ¡CV guardado correctamente en tu base de datos!");
+      setSavedJobPayload(payload);
+      setSaveToast({ type: 'success', message: 'CV guardado correctamente en tu base de datos' });
+
+      // ¿Ya tiene contactos guardados? Si no, sugerimos buscarlos
+      let contactosActuales = [];
+      try {
+        contactosActuales = typeof payload.contacts === 'string'
+          ? JSON.parse(payload.contacts || '[]')
+          : (Array.isArray(payload.contacts) ? payload.contacts : []);
+      } catch (e) {
+        contactosActuales = [];
+      }
+
+      if (contactosActuales.length === 0 && payload.company) {
+        setTimeout(() => setShowContactPrompt(true), 900); // deja ver el toast primero
+      }
     } catch (error) {
       console.error("Error:", error);
-      alert("❌ Hubo un error al guardar. Revisa tu conexión a Sheets.");
+      setSaveToast({ type: 'error', message: 'Hubo un error al guardar. Revisa tu conexión a Sheets.' });
+    }
+  };
+
+  const companySlugFromName = (name) => (name || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+
+  const openLinkedInPeopleSearch = () => {
+    if (!savedJobPayload) return;
+    let base;
+    if (savedJobPayload.company_linkedin_url) {
+      base = savedJobPayload.company_linkedin_url.split('/company/')[1]?.split('/')[0];
+    }
+    if (!base) base = companySlugFromName(savedJobPayload.company);
+    const url = `https://www.linkedin.com/company/${base}/people/?keywords=talent%20OR%20hr%20OR%20people%20OR%20recruit%20OR%20marketing`;
+    window.open(url, '_blank');
+  };
+
+  const goToJobPageToAddContacts = () => {
+    setShowContactPrompt(false);
+    if (savedJobPayload?.id) {
+      navigate(`/job/${savedJobPayload.id}`, { state: { openContacts: true } });
     }
   };
 
@@ -795,6 +846,55 @@ export default function CVBuilder() {
             <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
               <button onClick={() => { setMostrarImportJson(false); setJsonImport(''); setErrorJson(''); }} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200 rounded-lg">Cancelar</button>
               <button onClick={importarDesdeJson} className="px-5 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow">✅ Importar Datos</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TOAST DE GUARDADO (reemplaza los alert() nativos) */}
+      {saveToast && (
+        <div className="fixed bottom-6 right-6 z-[60] animate-fadeIn">
+          <div className={`flex items-center gap-3 px-5 py-4 rounded-xl shadow-2xl border max-w-sm ${saveToast.type === 'success' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-red-600 border-red-700 text-white'}`}>
+            <div className={`p-2 rounded-lg shrink-0 ${saveToast.type === 'success' ? 'bg-lime-400/20' : 'bg-white/20'}`}>
+              {saveToast.type === 'success' ? <Check size={18} className="text-lime-300"/> : <X size={18} className="text-white"/>}
+            </div>
+            <div className="text-sm font-medium flex-1">{saveToast.message}</div>
+            <button onClick={() => setSaveToast(null)} className="text-white/60 hover:text-white shrink-0"><X size={16}/></button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Sugerencia de buscar contactos tras guardar el CV */}
+      {showContactPrompt && savedJobPayload && (
+        <div className="fixed inset-0 bg-black/40 z-[70] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="bg-blue-50 p-2.5 rounded-xl"><UserPlus size={20} className="text-blue-600"/></div>
+              <h3 className="font-bold text-slate-800 text-base">¿Buscamos contactos en {savedJobPayload.company}?</h3>
+            </div>
+            <p className="text-sm text-slate-500 mb-5">
+              Aún no tienes contactos guardados para esta empresa. Puedo abrirte la búsqueda de gente
+              de LinkedIn filtrada por Talent, HR, People y Marketing.
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => { openLinkedInPeopleSearch(); goToJobPageToAddContacts(); }}
+                className="w-full py-2.5 bg-blue-600 text-white font-bold text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+              >
+                <ExternalLink size={15}/> Buscar en LinkedIn y añadir
+              </button>
+              <button
+                onClick={goToJobPageToAddContacts}
+                className="w-full py-2.5 bg-slate-100 text-slate-600 font-bold text-sm rounded-lg hover:bg-slate-200 transition-colors"
+              >
+                Añadir manualmente
+              </button>
+              <button
+                onClick={() => setShowContactPrompt(false)}
+                className="w-full py-2 text-slate-400 text-xs hover:text-slate-600 transition-colors"
+              >
+                Ahora no
+              </button>
             </div>
           </div>
         </div>
