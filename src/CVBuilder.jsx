@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Mail, Phone, MapPin, Linkedin, Trash2, PlusCircle, Printer, ArrowLeft, LayoutTemplate, Globe, Download, ScanEye, Settings, Type, AlignJustify, Briefcase, Save, History, Sparkles, UserPlus, ExternalLink, Check, X } from 'lucide-react'; 
+import { Mail, Phone, MapPin, Linkedin, Trash2, PlusCircle, Printer, ArrowLeft, LayoutTemplate, Globe, Download, ScanEye, Settings, Type, AlignJustify, Briefcase, Save, History, Sparkles, UserPlus, ExternalLink, Check, X, HelpCircle } from 'lucide-react'; 
 import useGoogleSheets from './hooks/useGoogleSheets';
 
 // --- COMPONENTE AUXILIAR PARA NEGRITAS Y LISTAS ---
@@ -110,8 +110,8 @@ export default function CVBuilder() {
     leftTextSize: 10, leftLineHeight: 1.4,
     paddingTop: 32, headerMarginBottom: 24, headerToExpGap: 20,
   });
-  const [qaResult, setQaResult] = useState(null); // Guardará el objeto de feedback de Groq
-  const [showQaModal, setShowQaModal] = useState(false); // Para abrir/cerrar la ventana de resultados
+  const [qaResult, setQaResult] = useState(null);
+  const [showQaModal, setShowQaModal] = useState(false);
 
   const [targetJob, setTargetJob] = useState(null);
   const [activeTab, setActiveTab] = useState('content'); 
@@ -125,10 +125,11 @@ export default function CVBuilder() {
   const [jsonImport, setJsonImport] = useState('');
   const [errorJson, setErrorJson] = useState('');
 
-  // Nuevos: toast de guardado + modal de sugerencia de contactos
-  const [saveToast, setSaveToast] = useState(null); // { type: 'success'|'error', message: string } | null
+  // Toast & Modales Custom
+  const [saveToast, setSaveToast] = useState(null);
   const [showContactPrompt, setShowContactPrompt] = useState(false);
   const [savedJobPayload, setSavedJobPayload] = useState(null);
+  const [showApplyConfirmModal, setShowApplyConfirmModal] = useState(false);
 
   useEffect(() => {
     if (location.state?.jobContext) {
@@ -144,7 +145,6 @@ export default function CVBuilder() {
     return () => clearTimeout(timer);
   }, [saveToast]);
 
-  // --- FUNCIÓN CONECTADA CON APPS SCRIPT ---
   const generarEstrategiaIA = async () => {
     if (!targetJob) return;
     setLoadingIA(true);
@@ -255,7 +255,6 @@ export default function CVBuilder() {
     }
   };
 
-  // --- HANDLERS BÁSICOS ---
   const handlePersonalChange = (e) => setCv({ ...cv, personal: { ...cv.personal, [e.target.name]: e.target.value } });
   const handleSkillsChange = (e) => setCv({ ...cv, skills: e.target.value.split(',').map(s => s.trim()) });
   const addItem = (section, template) => setCv({ ...cv, [section]: [...cv[section], { ...template, id: Date.now() }] });
@@ -277,18 +276,29 @@ export default function CVBuilder() {
     document.title = originalTitle;
   };
 
-  const handleSave = async () => {
+  // --- NUEVA LÓGICA DE GUARDADO CON MODAL CUSTOM ---
+  const handleSaveClick = () => {
     if (!targetJob) return;
-    const cvTextDump = cvToString(cv);
     const isAlreadyApplied = ['Aplicado', 'Entrevista', 'Oferta'].includes(targetJob.status);
+    
+    if (!isAlreadyApplied) {
+      setShowApplyConfirmModal(true);
+    } else {
+      executeSave(false);
+    }
+  };
+
+  const executeSave = async (markAsApplied) => {
+    setShowApplyConfirmModal(false);
+    if (!targetJob) return;
+
+    const cvTextDump = cvToString(cv);
     let newStatus = targetJob.status;
     let newDateApplied = targetJob.date_applied;
 
-    if (!isAlreadyApplied) {
-      if (window.confirm(`¿Quieres marcar la oferta en "${targetJob.company}" como APLICADA además de guardar el CV?`)) {
-        newStatus = 'Aplicado';
-        newDateApplied = new Date().toISOString().split('T')[0];
-      }
+    if (markAsApplied) {
+      newStatus = 'Aplicado';
+      newDateApplied = new Date().toISOString().split('T')[0];
     }
 
     try {
@@ -298,7 +308,6 @@ export default function CVBuilder() {
       setSavedJobPayload(payload);
       setSaveToast({ type: 'success', message: 'CV guardado correctamente en tu base de datos' });
 
-      // ¿Ya tiene contactos guardados? Si no, sugerimos buscarlos
       let contactosActuales = [];
       try {
         contactosActuales = typeof payload.contacts === 'string'
@@ -309,7 +318,7 @@ export default function CVBuilder() {
       }
 
       if (contactosActuales.length === 0 && payload.company) {
-        setTimeout(() => setShowContactPrompt(true), 900); // deja ver el toast primero
+        setTimeout(() => setShowContactPrompt(true), 900);
       }
     } catch (error) {
       console.error("Error:", error);
@@ -343,7 +352,6 @@ export default function CVBuilder() {
 
   const importCVFromHistory = (historyText) => {
     if (!historyText) return;
-    if (!window.confirm("⚠️ Esto sobrescribirá el Perfil, Experiencia y Skills actuales con los datos seleccionados. ¿Continuar?")) return;
 
     try {
       const summaryMatch = historyText.match(/\*\*\* PERFIL \*\*\*\n([\s\S]*?)\n\n\*\*\*/);
@@ -386,7 +394,49 @@ export default function CVBuilder() {
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row font-sans">
-      <style>{`.debug-box { outline: 1px solid #ff0000 !important; } @media print { @page { margin: 0; size: A4; } body { -webkit-print-color-adjust: exact; background: white; } aside, .print-hidden { display: none !important; } main { margin: 0 !important; padding: 0 !important; width: 100% !important; } .cv-container { width: 210mm !important; min-height: 297mm !important; height: auto !important; margin: 0 !important; box-shadow: none !important; break-inside: avoid; } .experience-item { break-inside: avoid; } }`}</style>
+      <style>{`
+        .debug-box { outline: 1px solid #ff0000 !important; } 
+
+        /* FIX A4 ESTRICTO 1:1 PANTALLA VS IMPRESIÓN */
+        @page { 
+          size: A4 portrait; 
+          margin: 0mm; 
+        } 
+
+        @media print { 
+          html, body {
+            width: 210mm;
+            height: 297mm;
+            background: white !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          aside, .print-hidden { 
+            display: none !important; 
+          } 
+          main { 
+            margin: 0 !important; 
+            padding: 0 !important; 
+            width: 210mm !important;
+            height: 297mm !important;
+            background: white !important;
+          } 
+          .cv-container { 
+            width: 210mm !important; 
+            height: 297mm !important; 
+            max-height: 297mm !important;
+            margin: 0 !important; 
+            box-shadow: none !important; 
+            page-break-after: avoid;
+            page-break-inside: avoid;
+            break-inside: avoid;
+            overflow: hidden !important;
+          } 
+          .experience-item { 
+            break-inside: avoid; 
+          } 
+        }
+      `}</style>
 
       {/* EDITOR */}
       <aside className="w-full md:w-[450px] bg-white h-screen overflow-y-auto border-r border-gray-200 shadow-xl z-10 print:hidden flex flex-col">
@@ -434,44 +484,43 @@ export default function CVBuilder() {
 
           {/* TARGET JOB VINCULACIÓN */}
           <div className="bg-slate-800 rounded p-2 border border-slate-700">
-  {targetJob ? (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider">
-        <span className="flex items-center gap-2 text-green-400"><Briefcase size={14}/> Editando para:</span>
-        <button 
-          onClick={generarEstrategiaIA}
-          disabled={loadingIA}
-          className={`${loadingIA ? 'bg-purple-800 opacity-70 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'} text-white text-[10px] px-2 py-0.5 rounded flex items-center gap-1 transition-colors active:scale-95`}
-          title="Solicitar prompt optimizado a la API de tu Web App"
-        >
-          <Sparkles size={11} className={loadingIA ? "animate-spin" : ""}/>
-          {loadingIA ? "Procesando..." : "Generar Prompt IA"}
-        </button>
-      </div>
-      
-      <div className="font-bold text-sm truncate text-slate-100">{targetJob.company}</div>
-      
-      {/* FILA 1: PDF y Guardar CV Clásico */}
-      <div className="flex gap-2 mt-1">
-        <button onClick={handlePrint} className="flex-1 bg-white text-slate-900 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1 hover:bg-slate-100">
-          <Download size={14}/> PDF
-        </button>
-        <button onClick={handleSave} className="flex-1 bg-green-600 text-white py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1 hover:bg-green-700 transition-colors">
-          <Save size={14}/> Guardar CV
-        </button>
-      </div>
+          {targetJob ? (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider">
+                <span className="flex items-center gap-2 text-green-400"><Briefcase size={14}/> Editando para:</span>
+                <button 
+                  onClick={generarEstrategiaIA}
+                  disabled={loadingIA}
+                  className={`${loadingIA ? 'bg-purple-800 opacity-70 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'} text-white text-[10px] px-2 py-0.5 rounded flex items-center gap-1 transition-colors active:scale-95`}
+                  title="Solicitar prompt optimizado a la API de tu Web App"
+                >
+                  <Sparkles size={11} className={loadingIA ? "animate-spin" : ""}/>
+                  {loadingIA ? "Procesando..." : "Generar Prompt IA"}
+                </button>
+              </div>
+              
+              <div className="font-bold text-sm truncate text-slate-100">{targetJob.company}</div>
+              
+              <div className="flex gap-2 mt-1">
+                <button onClick={handlePrint} className="flex-1 bg-white text-slate-900 py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1 hover:bg-slate-100">
+                  <Download size={14}/> PDF
+                </button>
+                <button onClick={handleSaveClick} className="flex-1 bg-green-600 text-white py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1 hover:bg-green-700 transition-colors">
+                  <Save size={14}/> Guardar CV
+                </button>
+              </div>
 
-    </div>
-  ) : (
-    <div className="flex flex-col gap-2">
-       <select className="w-full bg-slate-900 border border-slate-600 rounded text-xs p-1.5 text-white" onChange={(e) => { const j = jobs.find(x => x.id === e.target.value); if(j) setTargetJob(j); }} defaultValue="">
-         <option value="" disabled>-- Vincular Oportunidad --</option>
-         {pendingJobs.map(j => <option key={j.id} value={j.id}>{j.company}</option>)}
-       </select>
-       <button onClick={handlePrint} className="w-full bg-blue-600 hover:bg-blue-700 py-1.5 rounded text-xs font-bold mt-1 flex items-center justify-center gap-2"><Printer size={14}/> PDF Genérico</button>
-    </div>
-  )}
-</div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+               <select className="w-full bg-slate-900 border border-slate-600 rounded text-xs p-1.5 text-white" onChange={(e) => { const j = jobs.find(x => x.id === e.target.value); if(j) setTargetJob(j); }} defaultValue="">
+                 <option value="" disabled>-- Vincular Oportunidad --</option>
+                 {pendingJobs.map(j => <option key={j.id} value={j.id}>{j.company}</option>)}
+               </select>
+               <button onClick={handlePrint} className="w-full bg-blue-600 hover:bg-blue-700 py-1.5 rounded text-xs font-bold mt-1 flex items-center justify-center gap-2"><Printer size={14}/> PDF Genérico</button>
+            </div>
+          )}
+        </div>
 
         {/* TABS */}
         <div className="flex border-b sticky top-[180px] bg-white z-20"> 
@@ -600,14 +649,14 @@ export default function CVBuilder() {
         </div>
       </aside>
 
-      {/* PREVIEW */}
+      {/* PREVIEW CON DIMENSIONADO FÍSICO A4 EN PANTALLA Y PRINT */}
       <main className="flex-1 bg-gray-500 overflow-y-auto p-4 md:p-8 flex justify-center print:p-0 print:bg-white">
         <div className="relative">
-          <div className="print-hidden absolute left-0 border-b-2 border-dashed border-red-500 z-50 flex items-end justify-end pointer-events-none" style={{ top: '297mm', width: '210mm' }}><span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-t font-bold">⚠ FIN PÁGINA 1</span></div>
-          <div className="cv-container bg-white shadow-2xl w-[210mm] min-h-[297mm] flex items-stretch overflow-hidden" style={{ background: `linear-gradient(90deg, ${cv.themeColor} 0%, ${cv.themeColor} 32%, #ffffff 32%, #ffffff 100%)` }}>
+          <div className="print-hidden absolute left-0 border-b-2 border-dashed border-red-500 z-50 flex items-end justify-end pointer-events-none" style={{ top: '297mm', width: '210mm' }}><span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-t font-bold">⚠ FIN PÁGINA 1 (297mm)</span></div>
+          <div className="cv-container bg-white shadow-2xl w-[210mm] h-[297mm] min-h-[297mm] max-h-[297mm] flex items-stretch overflow-hidden box-border" style={{ background: `linear-gradient(90deg, ${cv.themeColor} 0mm, ${cv.themeColor} 67.2mm, #ffffff 67.2mm, #ffffff 210mm)` }}>
             
-            {/* COLUMNA IZQUIERDA */}
-            <div className={`w-[32%] p-6 flex flex-col shrink-0 text-white ${debugClass}`} style={{ paddingTop: `${design.paddingTop}px` }}>
+            {/* COLUMNA IZQUIERDA (32% de 210mm = 67.2mm) */}
+            <div className={`w-[67.2mm] p-6 flex flex-col shrink-0 text-white ${debugClass} box-border overflow-hidden`} style={{ paddingTop: `${design.paddingTop}px` }}>
               <div className={`w-28 h-28 rounded-full mx-auto mb-6 overflow-hidden flex items-center justify-center shrink-0 border-4 border-white/30 bg-white/20 ${debugClass}`}>
                  {cv.personal.photoUrl ? <img src={cv.personal.photoUrl} alt="Profile" className="w-full h-full object-cover" crossOrigin="anonymous" /> : <span className="text-4xl font-bold">{cv.personal.name.charAt(0)}</span>}
               </div>
@@ -647,8 +696,8 @@ export default function CVBuilder() {
               </div>
             </div>
 
-            {/* COLUMNA DERECHA */}
-            <div className={`w-[68%] p-8 flex flex-col text-slate-800 ${debugClass}`} style={{ paddingTop: `${design.paddingTop}px` }}>
+            {/* COLUMNA DERECHA (68% de 210mm = 142.8mm) */}
+            <div className={`w-[142.8mm] p-8 flex flex-col text-slate-800 ${debugClass} box-border overflow-hidden`} style={{ paddingTop: `${design.paddingTop}px` }}>
               <header className="pb-4 shrink-0 border-b-2" style={{ borderColor: cv.themeColor, marginBottom: `${design.headerMarginBottom}px` }}>
                 <h1 className="font-extrabold uppercase tracking-tight leading-none mb-2 text-slate-900" style={{ fontSize: `${design.nameSize}px` }}>{cv.personal.name}</h1>
                 <h2 className="font-bold tracking-wide" style={{ color: cv.themeColor, fontSize: '18px' }}>{cv.personal.title}</h2>
@@ -682,75 +731,103 @@ export default function CVBuilder() {
         </div>
       </main>
 
+      {/* MODAL SUPLENTE DE CONFIRMACIÓN AL GUARDAR (REEMPLAZO WINDOW.CONFIRM) */}
+      {showApplyConfirmModal && targetJob && (
+        <div className="fixed inset-0 bg-black/50 z-[80] flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 border border-slate-100">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="bg-green-100 p-2.5 rounded-xl text-green-700">
+                <HelpCircle size={22} />
+              </div>
+              <h3 className="font-bold text-slate-900 text-base">Actualizar Estado de Oferta</h3>
+            </div>
+            <p className="text-sm text-slate-600 mb-6 leading-relaxed">
+              ¿Quieres marcar la oportunidad en <strong className="text-slate-900">{targetJob.company}</strong> como <span className="text-green-600 font-bold">"APLICADA"</span> además de guardar los cambios del CV?
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => executeSave(true)}
+                className="w-full py-2.5 bg-green-600 hover:bg-green-700 text-white font-bold text-sm rounded-lg shadow transition-colors flex items-center justify-center gap-2"
+              >
+                <Check size={16}/> Sí, guardar y marcar Aplicada
+              </button>
+              <button
+                onClick={() => executeSave(false)}
+                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm rounded-lg transition-colors"
+              >
+                Solo guardar cambios de CV
+              </button>
+              <button
+                onClick={() => setShowApplyConfirmModal(false)}
+                className="w-full py-2 text-slate-400 text-xs hover:text-slate-600 transition-colors mt-1"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL DE RESULTADOS DE CALIDAD (GROQ QA) */}
-{showQaModal && qaResult && (
-  <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
-    <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col border border-purple-200">
-      
-      {/* Cabecera */}
-      <div className="p-6 border-b border-purple-100 bg-purple-50 flex justify-between items-center">
-        <div>
-          <h3 className="text-xl font-bold text-purple-950 flex items-center gap-2">
-            <Sparkles size={20} className="text-purple-600"/> Análisis de Calidad del CV
-          </h3>
-          <p className="text-xs text-purple-700 mt-0.5">Informe estratégico generado por Groq en base a la oferta.</p>
+      {showQaModal && qaResult && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col border border-purple-200">
+            <div className="p-6 border-b border-purple-100 bg-purple-50 flex justify-between items-center">
+              <div>
+                <h3 className="text-xl font-bold text-purple-950 flex items-center gap-2">
+                  <Sparkles size={20} className="text-purple-600"/> Análisis de Calidad del CV
+                </h3>
+                <p className="text-xs text-purple-700 mt-0.5">Informe estratégico generado por Groq en base a la oferta.</p>
+              </div>
+              <button 
+                onClick={() => setShowQaModal(false)}
+                className="text-purple-400 hover:text-purple-700 text-sm font-bold bg-white border border-purple-200 rounded-full w-8 h-8 flex items-center justify-center shadow-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1 space-y-6 text-slate-800">
+              {qaResult.score !== undefined && (
+                <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-xl border">
+                  <div className="w-16 h-16 rounded-full bg-purple-600 text-white flex items-center justify-center font-extrabold text-xl shadow">
+                    {qaResult.score}/100
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-slate-900">Puntuación de ajuste ATS</h4>
+                    <p className="text-xs text-slate-500">Mapeo semántico de palabras clave y densidad de competencias.</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Diagnóstico General</h4>
+                <div className="p-4 bg-slate-50 border rounded-lg text-sm leading-relaxed">
+                  <RichText text={qaResult.resumen_accion || qaResult.feedback || (typeof qaResult === 'string' ? qaResult : 'Análisis completado con éxito.')} />
+                </div>
+              </div>
+
+              {qaResult.puntos_criticos && (
+                <div className="space-y-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-red-400">Puntos Críticos a Corregir</h4>
+                  <div className="p-4 bg-red-50 text-red-950 border border-red-100 rounded-lg text-xs">
+                    <RichText text={qaResult.puntos_criticos} />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+              <button 
+                onClick={() => setShowQaModal(false)} 
+                className="px-5 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg shadow transition-colors"
+              >
+                Entendido, voy a optimizarlo
+              </button>
+            </div>
+          </div>
         </div>
-        <button 
-          onClick={() => setShowQaModal(false)}
-          className="text-purple-400 hover:text-purple-700 text-sm font-bold bg-white border border-purple-200 rounded-full w-8 h-8 flex items-center justify-center shadow-sm"
-        >
-          ✕
-        </button>
-      </div>
-
-      {/* Contenido del Reporte */}
-      <div className="p-6 overflow-y-auto flex-1 space-y-6 text-slate-800">
-        
-        {/* Si tu backend maneja un score o puntuación, lo renderizamos aquí de forma vistosa */}
-        {qaResult.score !== undefined && (
-          <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-xl border">
-            <div className="w-16 h-16 rounded-full bg-purple-600 text-white flex items-center justify-center font-extrabold text-xl shadow">
-              {qaResult.score}/100
-            </div>
-            <div>
-              <h4 className="font-bold text-sm text-slate-900">Puntuación de ajuste ATS</h4>
-              <p className="text-xs text-slate-500">Mapeo semántico de palabras clave y densidad de competencias.</p>
-            </div>
-          </div>
-        )}
-
-        {/* Resumen de Acción / Feedback Principal */}
-        <div className="space-y-2">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Diagnóstico General</h4>
-          <div className="p-4 bg-slate-50 border rounded-lg text-sm leading-relaxed">
-            {/* Si es un string directo o un objeto con campo resumen_accion */}
-            <RichText text={qaResult.resumen_accion || qaResult.feedback || (typeof qaResult === 'string' ? qaResult : 'Análisis completado con éxito.')} />
-          </div>
-        </div>
-
-        {/* Bloque dinámico por si devuelves arrays de puntos fuertes/débiles */}
-        {qaResult.puntos_criticos && (
-          <div className="space-y-2">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-red-400">Puntos Críticos a Corregir</h4>
-            <div className="p-4 bg-red-50 text-red-950 border border-red-100 rounded-lg text-xs">
-              <RichText text={qaResult.puntos_criticos} />
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Footer */}
-      <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
-        <button 
-          onClick={() => setShowQaModal(false)} 
-          className="px-5 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg shadow transition-colors"
-        >
-          Entendido, voy a optimizarlo
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+      )}
 
       {/* MODAL JSON */}
       {mostrarImportJson && (
@@ -772,7 +849,7 @@ export default function CVBuilder() {
         </div>
       )}
 
-      {/* TOAST DE GUARDADO (reemplaza los alert() nativos) */}
+      {/* TOAST DE GUARDADO */}
       {saveToast && (
         <div className="fixed bottom-6 right-6 z-[60] animate-fadeIn">
           <div className={`flex items-center gap-3 px-5 py-4 rounded-xl shadow-2xl border max-w-sm ${saveToast.type === 'success' ? 'bg-slate-900 border-slate-700 text-white' : 'bg-red-600 border-red-700 text-white'}`}>
