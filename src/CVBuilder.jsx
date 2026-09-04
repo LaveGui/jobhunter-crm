@@ -332,21 +332,30 @@ export default function CVBuilder() {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '');
 
-  const openLinkedInPeopleSearch = () => {
-    if (!savedJobPayload) return;
+  const openLinkedInPeopleSearch = (jobData) => {
+    const currentData = jobData || savedJobPayload || targetJob;
+    if (!currentData) return;
+
     let base;
-    if (savedJobPayload.company_linkedin_url) {
-      base = savedJobPayload.company_linkedin_url.split('/company/')[1]?.split('/')[0];
+    if (currentData.company_linkedin_url) {
+      base = currentData.company_linkedin_url.split('/company/')[1]?.split('/')[0];
     }
-    if (!base) base = companySlugFromName(savedJobPayload.company);
+    if (!base) base = companySlugFromName(currentData.company);
     const url = `https://www.linkedin.com/company/${base}/people/?keywords=talent%20OR%20hr%20OR%20people%20OR%20recruit%20OR%20marketing`;
     window.open(url, '_blank');
   };
 
+  const handleSaveAndSearchLinkedIn = async () => {
+    await executeSave(true);
+    openLinkedInPeopleSearch(targetJob);
+    goToJobPageToAddContacts();
+  };
+
   const goToJobPageToAddContacts = () => {
     setShowContactPrompt(false);
-    if (savedJobPayload?.id) {
-      navigate(`/job/${savedJobPayload.id}`, { state: { openContacts: true } });
+    if (savedJobPayload?.id || targetJob?.id) {
+      const id = savedJobPayload?.id || targetJob?.id;
+      navigate(`/job/${id}`, { state: { openContacts: true } });
     }
   };
 
@@ -863,12 +872,12 @@ export default function CVBuilder() {
       )}
 
       {/* MODAL: Sugerencia de buscar contactos tras guardar el CV */}
-      {showContactPrompt && savedJobPayload && (
+      {showContactPrompt && (savedJobPayload || targetJob) && (
         <div className="fixed inset-0 bg-black/40 z-[70] flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
             <div className="flex items-center gap-3 mb-3">
               <div className="bg-blue-50 p-2.5 rounded-xl"><UserPlus size={20} className="text-blue-600"/></div>
-              <h3 className="font-bold text-slate-800 text-base">¿Buscamos contactos en {savedJobPayload.company}?</h3>
+              <h3 className="font-bold text-slate-800 text-base">¿Buscamos contactos en {(savedJobPayload || targetJob)?.company}?</h3>
             </div>
             <p className="text-sm text-slate-500 mb-5">
               Aún no tienes contactos guardados para esta empresa. Puedo abrirte la búsqueda de gente
@@ -876,10 +885,10 @@ export default function CVBuilder() {
             </p>
             <div className="flex flex-col gap-2">
               <button
-                onClick={() => { openLinkedInPeopleSearch(); goToJobPageToAddContacts(); }}
+                onClick={handleSaveAndSearchLinkedIn}
                 className="w-full py-2.5 bg-blue-600 text-white font-bold text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
               >
-                <ExternalLink size={15}/> Buscar en LinkedIn y añadir
+                <ExternalLink size={15}/> Buscar en LinkedIn y aplicar
               </button>
               <button
                 onClick={goToJobPageToAddContacts}
